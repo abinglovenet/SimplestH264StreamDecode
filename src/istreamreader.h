@@ -21,8 +21,11 @@ typedef struct
     quint32 timestamp;
     quint32 cts;
     QByteArray data;
+
+    /*
     QByteArray y;
     QByteArray uv;
+    */
 }AV_PACKET, *PAV_PACKET, AV_FRAME, *PAV_FRAME;
 
 class IStreamReader

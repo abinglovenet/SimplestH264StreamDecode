@@ -339,10 +339,10 @@ void StreamDecoder::run()
                 qInfo() << "pOutSurface " << pOutSurface->Info.CropH << pOutSurface->Info.CropW << pOutSurface->Info.Width << pOutSurface->Info.Height;
                 pFrame->width = pOutSurface->Info.Width;
                 pFrame->timestamp = pOutSurface->Data.TimeStamp / 90;
-                WriteRawFrame(pOutSurface, &pFrame->y, &pFrame->uv, &m_frameAllocator);
+                WriteRawFrame(pOutSurface, &pFrame->data, &m_frameAllocator);
                 // static quint8* pBuffer = new quint8[4096 * 2160 * 3];
                 // memset(pBuffer, 0, pFrame->width * pFrame->height * 3);
-                // pFrame->y.append((const char*)pBuffer, pFrame->width * pFrame->height * 3);
+                // pFrame->data.append((const char*)pBuffer, pFrame->width * pFrame->height * 3);
 
 
                 if(first_frame_tick == 0)

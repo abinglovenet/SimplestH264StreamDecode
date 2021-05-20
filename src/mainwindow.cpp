@@ -200,7 +200,7 @@ void MainWindow::on_frame_arrived(void* pFrame)
         }
     }
 
-    qInfo() << "got u" << ((PAV_FRAME)pFrame)->y.size();
+    //qInfo() << "got u" << ((PAV_FRAME)pFrame)->data.size();
     m_pRender->SetFrame((PAV_FRAME)pFrame);
     delete (PAV_FRAME)pFrame;
     /*

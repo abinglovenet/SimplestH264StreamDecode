@@ -502,7 +502,7 @@ static bool initYUV2RGB()
     return true;
 }
 static uint8_t* buffer = new uint8_t[4096 * 2160 * 3];
-mfxStatus WriteRawFrame(mfxFrameSurface1* pSurface, QByteArray* pBufferY, QByteArray* pBufferUV, mfxFrameAllocator* pAllocator)
+mfxStatus WriteRawFrame(mfxFrameSurface1* pSurface, QByteArray* pBuffer, mfxFrameAllocator* pAllocator)
 {
 
 
@@ -564,7 +564,7 @@ h = pInfo->Height;
 
         ::yuv420_2_rgb888(buffer, pData->Y, pData->U, pData->V, pInfo->Width, pInfo->Height, pData->Pitch, pData->Pitch, pInfo->Width * 3, yuv2rgb565_table, 0);
 
-        pBufferY->append((char*) buffer, pInfo->Width * pInfo->Height * 3);
+        pBuffer->append((char*) buffer, pInfo->Width * pInfo->Height * 3);
 
    // }
 

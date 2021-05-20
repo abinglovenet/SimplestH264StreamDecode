@@ -20,13 +20,12 @@ public:
 
     void SetFrame(PAV_FRAME pFrame);
     void Clear();
-    QOpenGLBuffer vbo;
-    QOpenGLBuffer vbo1;
-    QOpenGLVertexArrayObject vao;
 
-     QOpenGLTexture* m_pTexture;
-     QOpenGLTexture* m_pTextureUV;
-     QOpenGLShaderProgram* program;
+    QOpenGLBuffer m_vboDisplayRegion;
+    QOpenGLBuffer m_vboTexCoord;
+
+    QOpenGLTexture* m_pTexture;
+    QOpenGLShaderProgram* m_pShaderProgram;
 protected:
     virtual void initializeGL();
     virtual void resizeGL(int w, int h);

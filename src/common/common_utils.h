@@ -107,9 +107,9 @@ mfxStatus LoadRawRGBFrame(mfxFrameSurface1* pSurface, FILE* fSource);
 // Write raw YUV (NV12) surface to YUV (YV12) file
 mfxStatus WriteRawFrame(mfxFrameSurface1* pSurface, FILE* fSink);
 
-// Write raw YUV (NV12) surface to YUV (YV12) file
+// Write raw YUV (NV12) surface to QBYTEARRAY
 mfxStatus WriteRawFrame(mfxFrameSurface1* pSurface, QByteArray* pBuffer);
-mfxStatus WriteRawFrame(mfxFrameSurface1* pSurface, QByteArray* pBufferY, QByteArray* pBufferUV, mfxFrameAllocator* pAllocator);
+mfxStatus WriteRawFrame(mfxFrameSurface1* pSurface, QByteArray* pBuffer, mfxFrameAllocator* pAllocator);
 // Write raw YUV (P010) surface to YUV (YVP010) file
 mfxStatus WriteRaw10BitFrame(mfxFrameSurface1* pSurface, FILE* fSink);
 
