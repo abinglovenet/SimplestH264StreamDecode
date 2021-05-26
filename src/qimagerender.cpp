@@ -73,6 +73,7 @@ void QImageRender::Clear()
 
 void QImageRender::SetFrame(PAV_FRAME pFrame)
 {
+//#define TRACE_IMAGE
 #ifdef TRACE_IMAGE
     qInfo() << "111111112423424" << pFrame->width << pFrame->height;
     static QFile file("");

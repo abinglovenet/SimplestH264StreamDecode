@@ -10,6 +10,18 @@
 #include "common_utils.h"
 #include "istreamreader.h"
 
+typedef struct
+{
+    quint16 width;
+    quint16 height;
+    quint32 timestamp;
+    quint32 cts;
+    QByteArray data;
+
+    // This data is used when the GPU processes frames directly
+    mfxFrameSurface1* pSurface;
+}AV_FRAME, *PAV_FRAME;
+
 enum STREAM_CODER_ERRORCODE{
     SC_SUCCESS = 0,
 

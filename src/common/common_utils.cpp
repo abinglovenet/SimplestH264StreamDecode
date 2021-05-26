@@ -516,7 +516,7 @@ mfxStatus WriteRawFrame(mfxFrameSurface1* pSurface, QByteArray* pBuffer, mfxFram
 
     if(pData->Pitch != pInfo->Width)
         qWarning() << "Warning:"<<pData->Pitch << pInfo->Width << pInfo->CropX << pInfo->CropY;
-
+//#define TRACE_IMAGE
 #ifdef TRACE_IMAGE
     QString fileName = QString::asprintf("C:\\Users\\Public\\temp\\%x.yuv", pSurface->Data.TimeStamp);
     QFile file(fileName);
@@ -645,8 +645,11 @@ int GetFreeSurfaceIndex(mfxFrameSurface1** pSurfacesPool, mfxU16 nPoolSize)
 {
     if (pSurfacesPool)
         for (mfxU16 i = 0; i < nPoolSize; i++)
-            if (0 == pSurfacesPool[i]->Data.Locked)
+        {
+            QMutexLocker lock((QMutex*)pSurfacesPool[i]->reserved[0]);
+            if ((0 == pSurfacesPool[i]->Data.Locked) && (pSurfacesPool[i]->reserved[1] == 0))
                 return i;
+        }
     return MFX_ERR_NOT_FOUND;
 }
 

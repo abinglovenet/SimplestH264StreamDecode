@@ -13,6 +13,7 @@
 #include "flvreader.h"
 #include "qimagerender.h"
 #include "libzplay\libzplay.h"
+#include "qdirectxrender.h"
 
 using namespace libZPlay;
 
@@ -43,6 +44,7 @@ protected:
     IMediaReader* m_pMediaReader;
     StreamDecoder* m_pStreamDecoder;
     QImageRender* m_pRender;
+    QDirectXRender* m_pDirectXRender;
     bool m_bVideoDecoderFinished;
 
     ZPlay *m_pAudioPlayer;
@@ -63,7 +65,7 @@ protected:
 
     MEDIA_CONTEXT m_context;
     //test
-    QFile file;
+    //QFile file;
 signals:
     void audioDecodeFinished();
 public slots:
@@ -85,6 +87,7 @@ private slots:
 
 protected:
     virtual void	resizeEvent(QResizeEvent * event);
+    virtual void	closeEvent(QCloseEvent * event);
 private:
     Ui::MainWindow *ui;
 };

@@ -32,7 +32,7 @@ StreamDecoder::~StreamDecoder()
     delete m_pDecoder;
     qInfo() << "delete stream decoder...3";
 
-    ::Release();
+    //::Release();
     delete m_bs.Data;
 }
 
@@ -86,13 +86,7 @@ STREAM_CODER_ERRORCODE  StreamDecoder::RunDecoder()
     memset(&paramValid, 0, sizeof(paramValid));
     paramValid.mfx.CodecId = MFX_CODEC_AVC;
     sts = m_pDecoder->Query(&param, &paramValid);
-    /*
-    paramValid.mfx.CodecId = MFX_CODEC_AVC;
-    paramValid.mfx.CodecProfile = MFX_PROFILE_AVC_BASELINE;
-    paramValid.mfx.FrameInfo.Width = MSDK_ALIGN32(paramValid.mfx.FrameInfo.Width);
-    paramValid.mfx.FrameInfo.Height = MSDK_ALIGN32(paramValid.mfx.FrameInfo.Height);
-    qInfo() << "m_pDecoder->Query(&param, &paramValid)" << paramValid.mfx.CodecProfile << paramValid.mfx.FrameInfo.ChromaFormat << " "  << paramValid.mfx.FrameInfo.Width << paramValid.mfx.FrameInfo.Height << " " << sts;
-    */
+
     mfxFrameAllocRequest request;
     memset(&request, 0, sizeof(request));
 
@@ -103,6 +97,7 @@ STREAM_CODER_ERRORCODE  StreamDecoder::RunDecoder()
     // error code process
 
 
+    request.NumFrameSuggested += 4;
     sts = m_frameAllocator.Alloc(m_frameAllocator.pthis, &request, &m_response);
     qDebug() << "m_frameAllocator.Alloc " << sts << m_response.NumFrameActual;
     // error code process
@@ -116,6 +111,8 @@ STREAM_CODER_ERRORCODE  StreamDecoder::RunDecoder()
         memset(m_pFrameSurfaces[i], 0, sizeof(mfxFrameSurface1));
         m_pFrameSurfaces[i]->Data.MemType = request.Type;
         m_pFrameSurfaces[i]->Data.MemId = m_response.mids[i];
+        m_pFrameSurfaces[i]->reserved[0] = (mfxU32)new QMutex();
+        m_pFrameSurfaces[i]->reserved[1] = 0;
         memcpy(&(m_pFrameSurfaces[i]->Info), &(paramValid.mfx.FrameInfo), sizeof(mfxFrameInfo));
 
     }
@@ -143,6 +140,7 @@ void StreamDecoder::StopDecoder()
         m_pDecoder->Close();
         for(int i = 0; i < m_response.NumFrameActual; i++)
         {
+            delete (QMutex*)m_pFrameSurfaces[i]->reserved[0];
             delete m_pFrameSurfaces[i];
 
         }
@@ -282,7 +280,7 @@ void StreamDecoder::run()
             quint64 tick = GetTickCount64();
 
             nFreeSurfaceIndex = GetFreeSurfaceIndex(m_pFrameSurfaces, m_nSurfacePoolSize);
-            qDebug() << "GetFreeSurfaceIndex " << nFreeSurfaceIndex;
+            qInfo() << "GetFreeSurfaceIndex " << nFreeSurfaceIndex;
             if(nFreeSurfaceIndex == MFX_ERR_NOT_FOUND)
             {
                 msleep(10);
@@ -339,10 +337,11 @@ void StreamDecoder::run()
                 qInfo() << "pOutSurface " << pOutSurface->Info.CropH << pOutSurface->Info.CropW << pOutSurface->Info.Width << pOutSurface->Info.Height;
                 pFrame->width = pOutSurface->Info.Width;
                 pFrame->timestamp = pOutSurface->Data.TimeStamp / 90;
-                WriteRawFrame(pOutSurface, &pFrame->data, &m_frameAllocator);
-                // static quint8* pBuffer = new quint8[4096 * 2160 * 3];
-                // memset(pBuffer, 0, pFrame->width * pFrame->height * 3);
-                // pFrame->data.append((const char*)pBuffer, pFrame->width * pFrame->height * 3);
+                pFrame->pSurface = pOutSurface;
+
+                //lock
+                pFrame->pSurface->reserved[1] = 1;
+               // WriteRawFrame(pOutSurface, &pFrame->data, &m_frameAllocator);
 
 
                 if(first_frame_tick == 0)

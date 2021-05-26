@@ -10,7 +10,7 @@
 #include <QOpenGLBuffer>
 #include <QOpenGLTexture>
 #include <QDebug>
-#include "istreamreader.h"
+#include "streamdecoder.h"
 
 class QImageRender : public QOpenGLWidget,  protected QOpenGLFunctions
 {

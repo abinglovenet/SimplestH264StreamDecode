@@ -151,8 +151,12 @@ void FlvReader::Close()
     for(int i = 0; i < m_listAudioPackets.size(); i++)
         delete m_listAudioPackets.at(i);
 
+    m_listAudioPackets.clear();
+
     for(int i = 0; i < m_listVideoPackets.size(); i++)
         delete m_listVideoPackets.at(i);
+
+    m_listVideoPackets.clear();
 
 }
 

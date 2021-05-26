@@ -33,7 +33,8 @@ SOURCES += \
     streamdecoder.cpp \
     qimagerender.cpp \
     yuv2rgb16tab.c \
-    yuv420rgb888c.c
+    yuv420rgb888c.c \
+    qdirectxrender.cpp
 
 HEADERS += \
     common/bits/linux_defs.h \
@@ -51,7 +52,8 @@ HEADERS += \
     mainwindow.h \
     streamdecoder.h \
     qimagerender.h \
-    yuv2rgb.h
+    yuv2rgb.h \
+    qdirectxrender.h
 
 message($$DEFINES);
 contains(DEFINES, DX11_D3D){
@@ -66,8 +68,12 @@ FORMS += \
 LIBS += "$$THIRDPART\IntelMediaSDK\lib\win32\libmfx.lib" \
         DXGI.lib \
         D3D11.lib \
+        d3dcompiler.lib\
+        dxguid.lib\
         $$THIRDPART/libzplay/libzplay.lib
 
+QMAKE_LFLAGS_DEBUG += /NODEFAULTLIB:LIBCMT.lib
+QMAKE_LFLAGS_RELEASE += /NODEFAULTLIB:LIBCMT.lib
 
 CONFIG(debug, debug|release):QMAKE_POST_LINK = "$$RESOURCE_FILES\install.bat debug"
 CONFIG(release, debug|release):QMAKE_POST_LINK = "$$RESOURCE_FILES\install.bat release"
@@ -78,4 +84,5 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
 
 DISTFILES += \
-    common/CMakeLists.txt
+    common/CMakeLists.txt \
+    shader.hlsl

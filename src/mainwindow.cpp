@@ -38,24 +38,34 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
+    m_pDirectXRender = new QDirectXRender(ui->centralwidget);
+    ui->centralwidget->layout()->addWidget(m_pDirectXRender);
 
-    m_pRender = new QImageRender(ui->centralwidget);
-    ui->centralwidget->layout()->addWidget(m_pRender);
+    HWND hWnd = (HWND)m_pDirectXRender->winId();
+    ::InitDirectX(hWnd);
+
+
+    m_pDirectXRender->ResetRender();
+    //m_pRender = new QImageRender(ui->centralwidget);
+    //ui->centralwidget->layout()->addWidget(m_pRender);
 
     m_pMediaReader = nullptr;
     m_pStreamDecoder = nullptr;
     m_pAudioDecoder = nullptr;
     m_pSpeaker = nullptr;
-
+/*
     file.setFileName("C:\\Users\\Public\\test.mp3");
     file.open(QIODevice::ReadWrite);
-
+*/
 
     update_player_state(PLAYER_IDLE);
 }
 
 MainWindow::~MainWindow()
 {
+    ui->centralwidget->layout()->removeWidget(m_pDirectXRender);
+    delete m_pDirectXRender;
+    ::UnInitDirectX();
     delete ui;
 }
 
@@ -116,6 +126,11 @@ void MainWindow::TransferAudioDataToZPlay()
 
 }
 
+void MainWindow::closeEvent(QCloseEvent * event)
+{
+    on_close_player();
+}
+
 void	MainWindow::resizeEvent(QResizeEvent * event)
 {
     if(ui->centralwidget->height() <= 0)
@@ -161,6 +176,11 @@ void MainWindow::update_player_state(int player_state)
 
 void MainWindow::on_frame_arrived(void* pFrame)
 {
+    if(m_nPlayerState == PLAYER_IDLE)
+    {
+        delete (PAV_FRAME)pFrame;
+        return;
+    }
 
     if(m_bNeedAVSync)
     {
@@ -201,26 +221,10 @@ void MainWindow::on_frame_arrived(void* pFrame)
     }
 
     //qInfo() << "got u" << ((PAV_FRAME)pFrame)->data.size();
-    m_pRender->SetFrame((PAV_FRAME)pFrame);
+    //m_pRender->SetFrame((PAV_FRAME)pFrame);
+    m_pDirectXRender->SetFrame((PAV_FRAME)pFrame);
     delete (PAV_FRAME)pFrame;
-    /*
-qDebug() << "FrameArrive:" << currentTime;
-    do
-    {
-    if(m_audioFrames.isEmpty())
-        break;
-    QAudioBuffer frame = m_audioFrames.front();
-    qDebug() << "FrameArrive 1:" << frame.startTime();
-    if(frame.startTime() > currentTime)
-        break;
 
-        m_pSpeakerIO->write((const char*)frame.data(), frame.byteCount());
-        m_audioFrames.pop_front();
-
-
-
-    }while(true);
-    */
 }
 
 void MainWindow::on_audio_packet()
@@ -318,6 +322,14 @@ void MainWindow::on_close_player()
     if(m_nPlayerState != PLAYER_PLAYING)
         return;
 
+
+
+   // m_pRender->Clear();
+    m_pDirectXRender->Clear();
+    ui->time->setText("");
+    ui->progress->setValue(0);
+    ui->progress->setRange(0, 0);
+
     qInfo() <<"11111111111111111";
     if(m_pAudioPlayer != nullptr)
     {
@@ -337,11 +349,6 @@ void MainWindow::on_close_player()
         m_pMediaReader = nullptr;
     }
     qInfo() <<"111111111111111114";
-
-    m_pRender->Clear();
-    ui->time->setText("");
-    ui->progress->setValue(0);
-    ui->progress->setRange(0, 0);
 
     update_player_state(PLAYER_IDLE);
 }

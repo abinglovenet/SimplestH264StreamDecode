@@ -22,10 +22,12 @@
 
 #include<map>
 
-CComPtr<ID3D11Device>                   g_pD3D11Device;
-CComPtr<ID3D11DeviceContext>            g_pD3D11Ctx;
-CComPtr<IDXGIFactory2>                  g_pDXGIFactory;
-IDXGIAdapter*                           g_pAdapter;
+HWND                                    g_hWnd;
+CComPtr<IDXGISwapChain>                 g_pD3D11SwapChain = NULL;
+CComPtr<ID3D11Device>                   g_pD3D11Device = NULL;
+CComPtr<ID3D11DeviceContext>            g_pD3D11Ctx = NULL;
+CComPtr<IDXGIFactory2>                  g_pDXGIFactory = NULL;
+IDXGIAdapter*                           g_pAdapter = NULL;
 
 std::map<mfxMemId*, mfxHDL>             allocResponses;
 std::map<mfxHDL, mfxFrameAllocResponse> allocDecodeResponses;
@@ -78,12 +80,49 @@ IDXGIAdapter* GetIntelDeviceAdapterHandle(mfxSession session)
     return adapter;
 }
 
+bool InitDirectX(HWND hWnd)
+{
+    g_hWnd = hWnd;
+    MFXVideoSession session;
+    mfxVersion version = {0, 1};
+    mfxIMPL impl = MFX_IMPL_HARDWARE_ANY;
+    impl |= MFX_IMPL_VIA_D3D11;
+    session.Init(impl, &version);
+    mfxHDL handle;
+    CreateHWDevice(session, &handle, hWnd, true);
+    session.Close();
+    return true;
+}
+
+CComPtr<ID3D11Device> GetDirectXDeviceHanle()
+{
+    return g_pD3D11Device;
+}
+CComPtr<ID3D11DeviceContext> GetDirectXDeviceContext()
+{
+    return g_pD3D11Ctx;
+}
+CComPtr<IDXGISwapChain> GetDirectXSwapChain()
+{
+    return g_pD3D11SwapChain;
+}
+void UnInitDirectX()
+{
+    ::CleanupHWDevice();
+}
+
+ID3D11Texture2D* GetTexture(mfxFrameSurface1* pSurface)
+{
+    CustomMemId*        memId       = (CustomMemId*)pSurface->Data.MemId;
+    return (ID3D11Texture2D*)memId->memId;
+}
+
 // Create HW device context
-mfxStatus CreateHWDevice(mfxSession session, mfxHDL* deviceHandle, HWND /*hWnd*/, bool /*bCreateSharedHandles*/)
+mfxStatus CreateHWDevice(mfxSession session, mfxHDL* deviceHandle, HWND hWnd, bool /*bCreateSharedHandles*/)
 {
     // Window handle not required by DX11 since we do not showcase rendering.
 
-    HRESULT hres = S_OK;
+    HRESULT res = S_OK;
 
     static D3D_FEATURE_LEVEL FeatureLevels[] = {
         D3D_FEATURE_LEVEL_11_1,
@@ -100,19 +139,22 @@ mfxStatus CreateHWDevice(mfxSession session, mfxHDL* deviceHandle, HWND /*hWnd*/
     qInfo() <<"hah2";
     UINT dxFlags = 0;
     //UINT dxFlags = D3D11_CREATE_DEVICE_DEBUG;
+    DXGI_SWAP_CHAIN_DESC swap_desc;
+    ZeroMemory(&swap_desc, sizeof(swap_desc));
+    swap_desc.BufferCount = 1;
+    swap_desc.BufferDesc.Width = 0;
+    swap_desc.BufferDesc.Height = 0;
+    swap_desc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    swap_desc.BufferDesc.RefreshRate.Numerator = 60;
+    swap_desc.BufferDesc.RefreshRate.Denominator = 1;
+    swap_desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    swap_desc.OutputWindow = hWnd;
+    swap_desc.SampleDesc.Count = 1;
+    swap_desc.SampleDesc.Quality = 0;
+    swap_desc.Windowed = TRUE;
+    res = D3D11CreateDeviceAndSwapChain( g_pAdapter, D3D_DRIVER_TYPE_UNKNOWN, NULL, dxFlags, FeatureLevels, sizeof(FeatureLevels) / sizeof(FeatureLevels[0]), D3D11_SDK_VERSION, &swap_desc, &g_pD3D11SwapChain,   &g_pD3D11Device, &pFeatureLevelsOut, &g_pD3D11Ctx);
 
-    hres =  D3D11CreateDevice(  g_pAdapter,
-                                D3D_DRIVER_TYPE_UNKNOWN,
-                                NULL,
-                                dxFlags,
-                                FeatureLevels,
-                                (sizeof(FeatureLevels) / sizeof(FeatureLevels[0])),
-            D3D11_SDK_VERSION,
-            &g_pD3D11Device,
-            &pFeatureLevelsOut,
-            &g_pD3D11Ctx);
-    qInfo() <<"hah3";
-    if (FAILED(hres))
+    if (FAILED(res))
         return MFX_ERR_DEVICE_FAILED;
 
     // turn on multithreading for the DX11 context
@@ -145,6 +187,13 @@ void CleanupHWDevice()
     {
         g_pD3D11Ctx = NULL;
     }
+
+    if (g_pD3D11SwapChain)
+    {
+
+        g_pD3D11SwapChain = NULL;
+    }
+
     if (g_pD3D11Device)
     {
 
@@ -264,6 +313,8 @@ mfxStatus _simple_alloc(mfxFrameAllocRequest* request, mfxFrameAllocResponse* re
 
         if ( DXGI_FORMAT_P8 == desc.Format )
             desc.BindFlags = 0;
+
+        desc.BindFlags |= D3D11_BIND_SHADER_RESOURCE;
 
         ID3D11Texture2D* pTexture2D;
 
