@@ -46,6 +46,7 @@ protected:
     ID3D11Buffer*           g_pVertexBuffer;
 
     QTimer m_tickRender;
+    QMutex m_mutexRender;
 
 };
 

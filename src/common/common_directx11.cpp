@@ -132,11 +132,9 @@ mfxStatus CreateHWDevice(mfxSession session, mfxHDL* deviceHandle, HWND hWnd, bo
     };
     D3D_FEATURE_LEVEL pFeatureLevelsOut;
 
-    qInfo() << "hah1";
     g_pAdapter = GetIntelDeviceAdapterHandle(session);
     if (NULL == g_pAdapter)
         return MFX_ERR_DEVICE_FAILED;
-    qInfo() <<"hah2";
     UINT dxFlags = 0;
     //UINT dxFlags = D3D11_CREATE_DEVICE_DEBUG;
     DXGI_SWAP_CHAIN_DESC swap_desc;
@@ -153,6 +151,7 @@ mfxStatus CreateHWDevice(mfxSession session, mfxHDL* deviceHandle, HWND hWnd, bo
     swap_desc.SampleDesc.Quality = 0;
     swap_desc.Windowed = TRUE;
     res = D3D11CreateDeviceAndSwapChain( g_pAdapter, D3D_DRIVER_TYPE_UNKNOWN, NULL, dxFlags, FeatureLevels, sizeof(FeatureLevels) / sizeof(FeatureLevels[0]), D3D11_SDK_VERSION, &swap_desc, &g_pD3D11SwapChain,   &g_pD3D11Device, &pFeatureLevelsOut, &g_pD3D11Ctx);
+    //res = D3D11CreateDeviceAndSwapChain( g_pAdapter, D3D_DRIVER_TYPE_UNKNOWN, NULL, dxFlags, FeatureLevels, sizeof(FeatureLevels) / sizeof(FeatureLevels[0]), D3D11_SDK_VERSION, &swap_desc, &g_pD3D11SwapChain,   &g_pD3D11Device, &pFeatureLevelsOut, &g_pD3D11Ctx);
 
     if (FAILED(res))
         return MFX_ERR_DEVICE_FAILED;

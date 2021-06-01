@@ -5,10 +5,12 @@
 #include <QThread>
 #include <QDebug>
 #include <QFile>
+#include <QList>
 
 #include "mfxvideo++.h"
 #include "common_utils.h"
 #include "istreamreader.h"
+
 
 typedef struct
 {
@@ -34,6 +36,7 @@ enum STREAM_CODER_STATUS{
     PAUSED
 };
 
+
 class StreamDecoder : public QThread
 {
     Q_OBJECT
@@ -46,13 +49,18 @@ public:
     void Release();
 public:
     void SetStream(IStreamReader* stream);
+    void SetFrameRate(int nFrameRate);
 
     STREAM_CODER_ERRORCODE  RunDecoder();
     void StopDecoder();
     void PauseDecoder();
 
     STREAM_CODER_STATUS GetStatus();
+
+    void DisableOutputFrame();
+    void ScheduleOutputFrame();
 signals:
+    void firstFrameNotify();
     void frameArrived(void* pFrame);
     void decodeFinished();
     void errorOccur(STREAM_CODER_ERRORCODE);
@@ -72,13 +80,24 @@ protected:
     mfxBitstream m_bs;
 
     IStreamReader*     m_pVideoStream;
+    int m_nFrameRate;
+    int m_nSkipRate;
+    int m_nSkipCount;
+
+
+    QList<PAV_FRAME> m_bufFrames;
+    QMutex m_mutexFrames;
+    MMRESULT m_timerId;
+
+
+    int m_nTickCount;
+    int m_nTotalFrames;
+    quint32 m_beginTick;
+    quint32 m_recentBeginTick;
+    int m_nRecentFrameNum;
 
 
     bool m_bRun;
-
-    // test
-    QFile file;
-    int framecount;
 };
 
 #endif // STREAMDECODER_H

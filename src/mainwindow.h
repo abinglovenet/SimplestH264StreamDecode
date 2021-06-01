@@ -39,6 +39,7 @@ public:
     ~MainWindow();
 
 
+    void NotifyAudioDecodeFinished();
     void TransferAudioDataToZPlay();
 protected:
     IMediaReader* m_pMediaReader;
@@ -48,7 +49,6 @@ protected:
     bool m_bVideoDecoderFinished;
 
     ZPlay *m_pAudioPlayer;
-    bool m_bWaitFirstAudioFrame;
     bool m_bNeedAVSync;
     quint64 m_currentTimeStamp;
     QByteArray m_audioHeadFrame;
@@ -58,7 +58,7 @@ protected:
     QBuffer m_audioDecoderBuffer;
     bool m_bAudioDecodeFinished;
 
-    QList<QAudioBuffer> m_audioFrames;
+    QList<PAV_PACKET> m_audioFrames;
 
     QMutex m_locker;
     int m_nPlayerState;
@@ -68,22 +68,28 @@ protected:
     //QFile file;
 signals:
     void audioDecodeFinished();
+    void update_timestamp(quint64 cur);
 public slots:
+
+    // video frame notify
+    void on_first_frame_arrived();
     void on_frame_arrived(void* pFrame);
 
+    // audio frame notify
     void on_audio_packet();
     void on_audio_frame();
 
 
     void on_video_decode_finshed();
     void on_audio_decode_finished();
+    void on_update_timestamp(quint64 cur);
 private slots:
     void on_open_clicked();
     void on_close_player();
 
     void update_player_state(int player_state);
     void on_close_clicked();
-    void update_timestamp(quint64 cur);
+
 
 protected:
     virtual void	resizeEvent(QResizeEvent * event);

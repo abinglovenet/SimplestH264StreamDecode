@@ -70,7 +70,8 @@ LIBS += "$$THIRDPART\IntelMediaSDK\lib\win32\libmfx.lib" \
         D3D11.lib \
         d3dcompiler.lib\
         dxguid.lib\
-        $$THIRDPART/libzplay/libzplay.lib
+        $$THIRDPART/libzplay/libzplay.lib \
+        Winmm.lib
 
 QMAKE_LFLAGS_DEBUG += /NODEFAULTLIB:LIBCMT.lib
 QMAKE_LFLAGS_RELEASE += /NODEFAULTLIB:LIBCMT.lib

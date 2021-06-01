@@ -43,26 +43,22 @@ bool FlvReader::Open(QString path)
         tag_header.size = qFromBigEndian(tag_header.size) >> 8;
         if(tag_header.type != FLV_TAG_SCRIPT)
             break;
-        qInfo() << "TAG SCRIPT" << tag_header.size;
+
 
         // AMF Name
         QByteArray data_script = m_fVideoReader.read(tag_header.size);
         quint8 type = data_script.at(0);
 
-
-
-        //qInfo() << "TAG SCRIPT NAME" << type << data_script.toStdString().c_str();
         data_script.remove(0, 1);
-
 
         if(type == 0x02)
         {
             quint16 name_length = qFromBigEndian<quint16>((const uchar*)data_script.left(2).toStdString().c_str());
-            //qInfo() << data_script.left(2).toShort(0, 16);
+
             data_script.remove(0, 2);
             QByteArray name = data_script.left(name_length);
             data_script.remove(0, name_length);
-            //qInfo() << "TAG SCRIPT NAME" << name_length << name.toStdString().c_str();
+
 
         }
 
@@ -109,10 +105,16 @@ bool FlvReader::Open(QString path)
                 {
                     qint64 temp = qFromBigEndian<qint64>((const uchar*)prop_value.toStdString().c_str());
                     m_context.duration = *((double*)&temp) * 1000;
-                    qInfo() << m_context.duration;
+
                 }
 
-                //  qInfo() << prop_name.toStdString().c_str() << prop_value_type ;
+                if(strcmp(prop_name.toStdString().c_str(), "framerate") == 0)
+                {
+                    qint64 temp = qFromBigEndian<qint64>((const uchar*)prop_value.toStdString().c_str());
+                    m_context.framerate = *((double*)&temp);
+
+                }
+
             }
         }
 
@@ -186,21 +188,12 @@ bool FlvReader::GetVideoStreamContext(VIDEO_STREAM_CONTEXT& context)
 
 bool FlvReader::GetVideoPacket(PAV_PACKET& pPacket)
 {
-    quint64 tick = GetTickCount64();
-    qDebug() << "FlvReader::GetVideoPacket";
     QMutexLocker locker(&m_mutexVideo);
-    qDebug() << "lock:"<<GetTickCount64() - tick;
 
     if(m_listVideoPackets.isEmpty())
         return false;
-    qDebug() << "lock1:"<<GetTickCount64() - tick;
+
     pPacket = m_listVideoPackets.takeFirst();
-    qDebug() << "lock2:"<<GetTickCount64() - tick;
-    //m_listVideoPackets.pop_front();
-
-
-    qDebug() << "FlvReader::GetVideoPacket success" << m_listVideoPackets.size();
-    qDebug() << "lock4:"<<GetTickCount64() - tick;
     return true;
 }
 
@@ -210,7 +203,6 @@ bool FlvReader::IsVideoStreamEnd()
     qulonglong tick = GetTickCount64();
 
     QMutexLocker locker(&m_mutexVideo);
-    qDebug() << "is stream end lock:" << GetTickCount64() - tick;
     return m_bVideoStreamEnd && m_listVideoPackets.isEmpty();
 }
 
@@ -222,11 +214,7 @@ bool FlvReader::GetAudioStreamContext(AUDIO_STREAM_CONTEXT& context)
 
 bool FlvReader::GetAudioPacket(PAV_PACKET& pPacket, quint64 maxTimeStamp)
 {
-
-    quint64 tick = GetTickCount64();
-    qDebug() << "FlvReader::GetAudioPacket";
     QMutexLocker locker(&m_mutexAudio);
-    qDebug() << "lock:"<<GetTickCount64() - tick;
 
     if(m_listAudioPackets.isEmpty())
         return false;
@@ -235,42 +223,29 @@ bool FlvReader::GetAudioPacket(PAV_PACKET& pPacket, quint64 maxTimeStamp)
     {
         return false;
     }
-    //qDebug() << "lock1:"<<GetTickCount64() - tick;
+
     pPacket = m_listAudioPackets.takeFirst();
-    // qDebug() << "lock2:"<<GetTickCount64() - tick;
-    //m_listAudioPackets.pop_front();
-
-
-    // qDebug() << "FlvReader::GetAudioPacket success" << m_listAudioPackets.size();
-    // qDebug() << "lock4:"<<GetTickCount64() - tick;
+    qInfo() << "Audio Packet timestamp:" << pPacket->timestamp;
     return true;
 }
 bool FlvReader::GetAudioPacket(PAV_PACKET& pPacket)
 {
-    quint64 tick = GetTickCount64();
-    qDebug() << "FlvReader::GetAudioPacket";
+
     QMutexLocker locker(&m_mutexAudio);
-    qDebug() << "lock:"<<GetTickCount64() - tick;
 
     if(m_listAudioPackets.isEmpty())
         return false;
-    qDebug() << "lock1:"<<GetTickCount64() - tick;
+
     pPacket = m_listAudioPackets.takeFirst();
-    qDebug() << "lock2:"<<GetTickCount64() - tick;
-    //m_listAudioPackets.pop_front();
 
+    qInfo() << "Audio Packet timestamp:" << pPacket->timestamp;
 
-    qDebug() << "FlvReader::GetAudioPacket success" << m_listAudioPackets.size();
-    qDebug() << "lock4:"<<GetTickCount64() - tick;
     return true;
 }
 
 bool FlvReader::IsAudioStreamEnd()
 {
-    qulonglong tick = GetTickCount64();
-
     QMutexLocker locker(&m_mutexAudio);
-    qDebug() << "is stream end lock:" << GetTickCount64() - tick;
     return m_bAudioStreamEnd && m_listAudioPackets.isEmpty();
 }
 

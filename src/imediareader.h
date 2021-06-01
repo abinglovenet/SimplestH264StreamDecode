@@ -6,6 +6,7 @@
 typedef struct
 {
     quint64 duration;
+    quint64 framerate;
 }MEDIA_CONTEXT, *PMEDIA_CONTEXT;
 
 class IMediaReader

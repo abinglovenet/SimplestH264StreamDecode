@@ -112,24 +112,16 @@ void QImageRender::SetFrame(PAV_FRAME pFrame)
 
         m_pTexture->setMipBaseLevel(0);
         m_pTexture->setMipMaxLevel(10);
-        // 设置最近的过滤模式，以缩小纹理
-        m_pTexture->setMinificationFilter(QOpenGLTexture::NearestMipMapNearest); //滤波
-        qInfo() << "11114------";
-        // 设置双线性过滤模式，以放大纹理
+        m_pTexture->setMinificationFilter(QOpenGLTexture::NearestMipMapNearest);
         m_pTexture->setMagnificationFilter(QOpenGLTexture::NearestMipMapNearest);
-        qInfo() << "11115------";
-        // 重复使用纹理坐标
         m_pTexture->setWrapMode(QOpenGLTexture::Repeat);
-        qInfo() << "11116------";
 
     }
 
 
-    qInfo() << "begin texture - data" << pFrame->data.size();
     if(m_pTexture)
         m_pTexture->setData(QOpenGLTexture::RGB, QOpenGLTexture::UInt8, pFrame->data.data());
-    //m_pTextureUV->setData(QOpenGLTexture::RG, QOpenGLTexture::UInt8, pFrame->uv.data());
-    qInfo() << "end texture - data";
+
     update();
 }
 
@@ -212,6 +204,5 @@ void QImageRender::paintGL()
         m_pTexture->release();
     }
 
-    qDebug() << "QImageRender::paintGL()";
 
 }

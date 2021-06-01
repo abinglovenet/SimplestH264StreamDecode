@@ -1,18 +1,29 @@
 #include "streamdecoder.h"
+#define MAX_BUFFERED_FRAMES 6
 
+
+#define CURRENT_TICK(zero_tick) (GetTickCount() - zero_tick)
+
+
+void WINAPI ScheduleOutputFrameProc(UINT wTimerID, UINT msg,DWORD dwUser,DWORD dwl,DWORD dw2)
+{
+
+    StreamDecoder* pDecoder = (StreamDecoder*)dwUser;
+    pDecoder->ScheduleOutputFrame();
+    return;
+}
 
 StreamDecoder::StreamDecoder(QObject *parent) : QThread(parent)
 {
-    qInfo() << "11111-1";
     m_pVideoStream = nullptr;
     mfxVersion version = {0, 1};
     Initialize(MFX_IMPL_HARDWARE_ANY, version, &m_session, &m_frameAllocator);
-    qInfo() << "11111-2";
     m_pDecoder = new MFXVideoDECODE(m_session);
     memset(&m_bs, 0, sizeof(m_bs));
     m_bs.Data = new mfxU8[8 * 1024 * 1024];
     m_bs.DataLength = 0;
     m_bs.MaxLength = 8 * 1024 * 1024;
+    m_nFrameRate = 25;
 
 #ifdef _READ_H264_FROM_FILE
     QString fileName = QString::asprintf("C:\\Users\\Public\\test.h264", this);
@@ -40,9 +51,33 @@ void StreamDecoder::Release()
 {
     delete this;
 }
+
 void StreamDecoder::SetStream(IStreamReader* stream)
 {
     m_pVideoStream = stream;
+}
+
+void StreamDecoder::SetFrameRate(int nFrameRate)
+{
+    m_nFrameRate = nFrameRate;
+    m_nSkipRate = 0;
+    m_nSkipCount = 0;
+
+
+    int nDuration = 1000 / nFrameRate;
+    int nMod = 1000 % nFrameRate;
+    if(1000 % nFrameRate != 0)
+    {
+    for(int i = 1; i <= nFrameRate; i++)
+    {
+        if((i * nDuration * nFrameRate) % nMod == 0)
+        {
+            m_nSkipCount = i;
+            m_nSkipRate = (i * nDuration * nFrameRate) / nMod;
+            break;
+        }
+    }
+    }
 }
 
 STREAM_CODER_ERRORCODE  StreamDecoder::RunDecoder()
@@ -68,11 +103,6 @@ STREAM_CODER_ERRORCODE  StreamDecoder::RunDecoder()
     {
         qInfo() << "DecodeHeader Need more data";
         ReadPacket();
-
-        /*
-        for(int i = m_bs.DataOffset; i < (m_bs.DataOffset + m_bs.DataLength); i++)
-            qDebug("bs byte:%x", m_bs.Data[i]);
-            */
     }
 
 
@@ -97,7 +127,7 @@ STREAM_CODER_ERRORCODE  StreamDecoder::RunDecoder()
     // error code process
 
 
-    request.NumFrameSuggested += 4;
+    request.NumFrameSuggested += MAX_BUFFERED_FRAMES * 2;
     sts = m_frameAllocator.Alloc(m_frameAllocator.pthis, &request, &m_response);
     qDebug() << "m_frameAllocator.Alloc " << sts << m_response.NumFrameActual;
     // error code process
@@ -126,13 +156,24 @@ STREAM_CODER_ERRORCODE  StreamDecoder::RunDecoder()
 
 
     m_bRun = true;
-    start();
+    start(QThread::TimeCriticalPriority);
+
+
+    m_timerId = timeSetEvent(1000 / m_nFrameRate, 1, ScheduleOutputFrameProc, (DWORD_PTR)this, TIME_PERIODIC | TIME_KILL_SYNCHRONOUS | TIME_CALLBACK_FUNCTION);
+
+    m_nTickCount = 0;
+    m_nTotalFrames = 0;
+    m_beginTick = 0;
+    m_recentBeginTick = 0;
+    m_nRecentFrameNum = 0;
     return SC_SUCCESS;
 }
 void StreamDecoder::StopDecoder()
 {
     if(m_bRun)
     {
+
+        timeKillEvent(m_timerId);
 
         m_bRun = false;
         wait();
@@ -148,6 +189,10 @@ void StreamDecoder::StopDecoder()
         delete []m_pFrameSurfaces;
 
         m_frameAllocator.Free(m_frameAllocator.pthis, &m_response);
+
+        for(int i = 0; i < m_bufFrames.size(); i++)
+            delete m_bufFrames[i];
+        m_bufFrames.clear();
     }
 
 }
@@ -156,6 +201,72 @@ void StreamDecoder::PauseDecoder()
 
 }
 
+void StreamDecoder::DisableOutputFrame()
+{
+    timeKillEvent(m_timerId);
+}
+
+char szBuffer[512];
+void StreamDecoder::ScheduleOutputFrame()
+{
+
+    PAV_FRAME pRenderFrame = nullptr;
+
+    {
+        QMutexLocker locker(&m_mutexFrames);
+        if(!m_bufFrames.isEmpty())
+        {
+            pRenderFrame = m_bufFrames.takeFirst();
+
+
+            if(m_nSkipRate != 0)
+            {
+                ++m_nTickCount;
+
+                if(m_nTickCount % (m_nSkipRate + m_nSkipCount) == 0 || m_nTickCount % (m_nSkipRate + m_nSkipCount) > m_nSkipRate)
+                {
+                    m_bufFrames.push_front(pRenderFrame);
+                    return;
+                }
+
+
+            }
+        }
+
+
+    }
+
+    if(pRenderFrame != nullptr)
+    {
+
+        ++m_nTotalFrames;
+        ++m_nRecentFrameNum;
+
+
+        if(m_beginTick == 0)
+            m_beginTick = GetTickCount() - pRenderFrame->timestamp;
+
+
+        if(m_recentBeginTick == 0)
+        {
+            m_recentBeginTick = m_beginTick;
+        }
+
+        if((GetTickCount() - m_recentBeginTick) >= 1000)
+        {
+            sprintf(szBuffer, "total framerate:%f current framerate:%f", (float)m_nTotalFrames * 1000 / (GetTickCount() - m_beginTick), (float)m_nRecentFrameNum * 1000 / (GetTickCount() - m_recentBeginTick));
+            OutputDebugStringA(szBuffer);
+            m_recentBeginTick = GetTickCount();
+            m_nRecentFrameNum = 0;
+        }
+        emit frameArrived(pRenderFrame);
+
+
+    }
+
+
+
+}
 bool StreamDecoder::ReadPacket()
 {
 #ifdef _READ_H264_FROM_FILE
@@ -191,7 +302,7 @@ bool StreamDecoder::ReadPacket()
             buffer = buffer.left(nPos);
             buffer.prepend(split1);
             qInfo() << "position" << file.pos() << buffer.size();
-            // qInfo() << "1121212345"<<buffer.toHex();
+
             break;
         }
 
@@ -201,7 +312,7 @@ bool StreamDecoder::ReadPacket()
             file.seek(file.pos() - (buffer.size() - nPos - split2.size()));
             buffer = buffer.left(nPos);
             buffer.prepend(split2);
-            //qInfo() << "u1121212345"<<buffer.toHex();
+
             break;
         }
     }
@@ -210,7 +321,7 @@ bool StreamDecoder::ReadPacket()
         return false;
 
     framecount++;
-    // qDebug() << "ReadPacket2" << GetTickCount64() - tick;
+
     //#ifdef TRACE_IMAGE
     if(buffer.size() >= 40000)
     {
@@ -228,39 +339,32 @@ bool StreamDecoder::ReadPacket()
     m_bs.DataLength += buffer.size();
     return true;
 #endif
-    qulonglong tick = GetTickCount64();
 
-    qDebug() << "StreamDecoder::ReadPacket() begin";
     if(m_pVideoStream == nullptr)
         return false;
+
 
     PAV_PACKET packet = nullptr;
     if(!m_pVideoStream->GetVideoPacket(packet))
         return false;
-    qDebug() << "ReadPacket1" << GetTickCount64() - tick;
 
-    qDebug() << "bitstream : offset " << m_bs.DataOffset << " " << m_bs.DataLength << " " << m_bs.MaxLength;
     memmove(m_bs.Data, m_bs.Data + m_bs.DataOffset, m_bs.DataLength);
     m_bs.DataOffset = 0;
 
-    qDebug() << "ReadPacket2" << GetTickCount64() - tick;
 
     m_bs.DecodeTimeStamp = packet->timestamp * 90;
     m_bs.TimeStamp = (packet->timestamp + packet->cts) * 90;
     memcpy(m_bs.Data + m_bs.DataLength, packet->data.data(), packet->data.size());
 
-    qDebug() << "ReadPacket3" << GetTickCount64() - tick;
-
     m_bs.DataLength += packet->data.size();
-    qDebug() << "ReadPacket4" << GetTickCount64() - tick;
     delete packet;
-    qDebug() << "ReadPacket5" << GetTickCount64() - tick;
-    qDebug() << "StreamDecoder::ReadPacket() success" << m_bs.DataLength << " " << m_bs.MaxLength;
+
     return true;
 }
 
 void StreamDecoder::run()
 {
+
     do
     {
         if(nullptr == m_pVideoStream)
@@ -271,94 +375,90 @@ void StreamDecoder::run()
         int nFreeSurfaceIndex;
         mfxFrameSurface1* pOutSurface;
         mfxSyncPoint syncp;
+        bool bNotifyFirstFrame = false;
 
-        quint64 first_frame_tick = 0;
 
         while(m_bRun)
         {
 
-            quint64 tick = GetTickCount64();
-
             nFreeSurfaceIndex = GetFreeSurfaceIndex(m_pFrameSurfaces, m_nSurfacePoolSize);
-            qInfo() << "GetFreeSurfaceIndex " << nFreeSurfaceIndex;
             if(nFreeSurfaceIndex == MFX_ERR_NOT_FOUND)
             {
-                msleep(10);
+                //OutputDebugStringA(" wait1......");
+                Sleep(1);
                 continue;
             }
 
-            qDebug() << "t1" << GetTickCount64() - tick;
             pOutSurface = nullptr;
+
+
 
             if(m_bs.DataLength > 0 || ReadPacket())
             {
-                qDebug() << "t2:1" << GetTickCount64() - tick;
+
                 sts = m_pDecoder->DecodeFrameAsync(&m_bs, m_pFrameSurfaces[nFreeSurfaceIndex], &pOutSurface, &syncp);
 
-                if(sts == MFX_ERR_MORE_DATA)
-                {
-                    if(!ReadPacket())
-                    {
-                        if(m_pVideoStream->IsVideoStreamEnd())
-                            break;
-                    }
-
-                    continue;
-                }
-
-                qDebug() << "m_pDecoder->DecodeFrameAsync " << sts;
             }
             else
             {
-                if(m_pVideoStream->IsVideoStreamEnd())
+                if(!m_pVideoStream->IsVideoStreamEnd())
                 {
-                    sts = m_pDecoder->DecodeFrameAsync(NULL, m_pFrameSurfaces[nFreeSurfaceIndex], &pOutSurface, &syncp);
-                    if(sts == MFX_ERR_MORE_DATA)
-                        break;
-                }
-                else
+                    //OutputDebugStringA(" wait2......");
+                    Sleep(1);
                     continue;
+                }
+
+                sts = m_pDecoder->DecodeFrameAsync(NULL, m_pFrameSurfaces[nFreeSurfaceIndex], &pOutSurface, &syncp);
+                if(sts == MFX_ERR_MORE_DATA)
+                    break;
+
+
             }
 
 
             if(sts != MFX_ERR_NONE)
+            {
+                char szDebug[128] = {0};
+                sprintf(szDebug, "wait3..... sts:%d", sts);
+                //OutputDebugStringA(szDebug);
+                //Sleep(1);
                 continue;
-            qDebug() << "t2" << GetTickCount64() - tick;
-            qDebug() << GetTickCount();
-            m_session.SyncOperation(syncp, 60000);
+            }
 
-            qDebug() << "t3" << GetTickCount64() - tick;
+            m_session.SyncOperation(syncp, 60);
             if(pOutSurface)
             {
 
-                qDebug() << "Out Frame time stamp" << pOutSurface->Data.TimeStamp / 90;
+                //qInfo() << "Out Frame time stamp" << pOutSurface->Data.TimeStamp / 90;
                 PAV_FRAME pFrame = new AV_FRAME();
                 pFrame->height = pOutSurface->Info.Height;
-                qInfo() << "pOutSurface " << pOutSurface->Info.CropH << pOutSurface->Info.CropW << pOutSurface->Info.Width << pOutSurface->Info.Height;
+
                 pFrame->width = pOutSurface->Info.Width;
                 pFrame->timestamp = pOutSurface->Data.TimeStamp / 90;
                 pFrame->pSurface = pOutSurface;
 
                 //lock
                 pFrame->pSurface->reserved[1] = 1;
-               // WriteRawFrame(pOutSurface, &pFrame->data, &m_frameAllocator);
+                // WriteRawFrame(pOutSurface, &pFrame->data, &m_frameAllocator);
+                QMutexLocker locker(&m_mutexFrames);
+                m_bufFrames.push_back(pFrame);
 
 
-                if(first_frame_tick == 0)
-                    first_frame_tick = GetTickCount() - pFrame->timestamp;
-                quint32 duration = GetTickCount() - first_frame_tick;
-                if(pFrame->timestamp > duration)
-                    msleep(pFrame->timestamp - duration);
-
-                emit frameArrived(pFrame);
+                if(!bNotifyFirstFrame)
+                {
+                    emit firstFrameNotify();
+                    bNotifyFirstFrame = true;
+                }
 
             }
 
-            qDebug() << "t4" << GetTickCount64() - tick;
+
+
         }
 
 
     }while(FALSE);
 
     emit decodeFinished();
+
 }

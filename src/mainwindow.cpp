@@ -5,25 +5,28 @@
 
 
 
-#define FIX_TIMESTAMP(x) (x+100)
-#define MAX_TIMESTAMP(x) (x+100)
-#define MIN_TIMESTAMP(x) ((x-100) > 0 ? x - 100 : x)
+
+#define MAX_TIMESTAMP(x) (x + 900)
+#define MIN_TIMESTAMP(x) ((x > 360) ? (x - 360) : 0)
 
 int  __stdcall  zplayCallbackFunc(void* instance, void *user_data, TCallbackMessage message, unsigned int param1, unsigned int param2)
 {
     MainWindow* processor = (MainWindow*) user_data;
 
-    //qDebug() << "zPLAYCALLBACK";
     switch(message)
     {
     case MsgStreamNeedMoreData: // stream needs more data
     {
-        quint64 tick = GetTickCount64();
         processor->TransferAudioDataToZPlay();
-        //qInfo() << "zplay delay" << GetTickCount64() - tick;
         return 2;
 
     }
+        break;
+    case MsgStop:
+    {
+        processor->NotifyAudioDecodeFinished();
+    }
+        break;
     default:
         break;
 
@@ -69,61 +72,42 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
+void MainWindow::NotifyAudioDecodeFinished()
+{
+    emit audioDecodeFinished();
+}
+
 void MainWindow::TransferAudioDataToZPlay()
 {
     //qInfo() << "TransferAudioDataToZPlay";
+    if(m_nPlayerState != PLAYER_PLAYING)
+        return;
+
     PAV_PACKET pPacket = nullptr;
-    int nPushCount = 0;
 
-    quint64 maxTimeStamp = 0;
-    quint64 minTimeStamp = 0;
 
-    while(true)
     {
-        if(m_pMediaReader->GetStreamReader()->IsAudioStreamEnd())
+        QMutexLocker locker(&m_locker);
+
+        // Need to further handle the exception
+        if(m_audioFrames.isEmpty())
         {
-            emit audioDecodeFinished();
-            break;
+            if(m_pMediaReader->GetStreamReader()->IsAudioStreamEnd())
+            {
+                m_pAudioPlayer->PushDataToStream(NULL, 0);
+
+            }
+            return;
         }
-
+        for(int i = 0; i < m_audioFrames.size(); i++)
         {
-            QMutexLocker locker(&m_locker);
-            maxTimeStamp = MAX_TIMESTAMP(m_currentTimeStamp);
-            minTimeStamp = MIN_TIMESTAMP(m_currentTimeStamp);
-        }
-        if(m_bNeedAVSync)
-        {
-
-            m_pMediaReader->GetStreamReader()->GetAudioPacket(pPacket, maxTimeStamp);
-
-        }
-        else
-            m_pMediaReader->GetStreamReader()->GetAudioPacket(pPacket);
-
-        if(pPacket == nullptr)
-        {
-            ::Sleep(2);
-            break;
-        }
-
-        if(pPacket->timestamp < minTimeStamp)
-        {
+            pPacket = m_audioFrames.at(i);
+            m_pAudioPlayer->PushDataToStream(pPacket->data.data(), pPacket->data.size());
             delete pPacket;
-            pPacket = nullptr;
-            continue;
         }
 
-
-        nPushCount++;
-        int ret = m_pAudioPlayer->PushDataToStream(pPacket->data.data(), pPacket->data.size());
-        //qInfo() << "Push ret" << ret;
-        delete pPacket;
-        pPacket= nullptr;
-
-
+        m_audioFrames.clear();
     }
-    qInfo() << nPushCount;
-
 }
 
 void MainWindow::closeEvent(QCloseEvent * event)
@@ -174,6 +158,11 @@ void MainWindow::update_player_state(int player_state)
     m_nPlayerState = player_state;
 }
 
+void MainWindow::on_first_frame_arrived()
+{
+
+}
+
 void MainWindow::on_frame_arrived(void* pFrame)
 {
     if(m_nPlayerState == PLAYER_IDLE)
@@ -182,106 +171,27 @@ void MainWindow::on_frame_arrived(void* pFrame)
         return;
     }
 
-    if(m_bNeedAVSync)
+
     {
         QMutexLocker locker(&m_locker);
         m_currentTimeStamp = ((PAV_FRAME)pFrame)->timestamp;
 
     }
+    emit update_timestamp(m_currentTimeStamp);
 
-    update_timestamp(((PAV_FRAME)pFrame)->timestamp);
-    while(m_bWaitFirstAudioFrame)
-    {
-        PAV_PACKET pPacket = nullptr;
-        if(m_bNeedAVSync)
-            m_pMediaReader->GetStreamReader()->GetAudioPacket(pPacket, (m_currentTimeStamp));
-        else
-            m_pMediaReader->GetStreamReader()->GetAudioPacket(pPacket);
-
-
-        if(pPacket == nullptr)
-            break;
-
-        m_audioHeadFrame.append(pPacket->data);
-
-        delete pPacket;
-
-
-        if(m_audioHeadFrame.size() >= 1800)
-        {
-
-
-
-            m_pAudioPlayer->SetCallbackFunc(zplayCallbackFunc, (TCallbackMessage) MsgStreamNeedMoreData, this);
-            int ret = m_pAudioPlayer->OpenStream(1, 1, m_audioHeadFrame.data(), m_audioHeadFrame.size(), sfMp3);
-            m_pAudioPlayer->Play();
-            qDebug() << "m_pAudioPlayer->OpenStream" << ret << m_pAudioPlayer->GetError();
-            m_bWaitFirstAudioFrame = false;
-        }
-    }
-
-    //qInfo() << "got u" << ((PAV_FRAME)pFrame)->data.size();
-    //m_pRender->SetFrame((PAV_FRAME)pFrame);
     m_pDirectXRender->SetFrame((PAV_FRAME)pFrame);
+
     delete (PAV_FRAME)pFrame;
+
 
 }
 
 void MainWindow::on_audio_packet()
 {
 
-    while(m_bWaitFirstAudioFrame)
-    {
-        PAV_PACKET pPacket = nullptr;
-        if(m_bNeedAVSync)
-            m_pMediaReader->GetStreamReader()->GetAudioPacket(pPacket, FIX_TIMESTAMP(m_currentTimeStamp));
-        else
-            m_pMediaReader->GetStreamReader()->GetAudioPacket(pPacket);
 
-
-        if(pPacket == nullptr)
-            break;
-
-        m_audioHeadFrame.append(pPacket->data);
-
-        delete pPacket;
-
-
-        if(m_audioHeadFrame.size() >= 1800)
-        {
-
-
-
-            m_pAudioPlayer->SetCallbackFunc(zplayCallbackFunc, (TCallbackMessage) MsgStreamNeedMoreData, this);
-            int ret = m_pAudioPlayer->OpenStream(1, 1, m_audioHeadFrame.data(), m_audioHeadFrame.size(), sfMp3);
-
-            m_pAudioPlayer->Play();
-            qDebug() << "m_pAudioPlayer->OpenStream" << ret << m_pAudioPlayer->GetError();
-            m_bWaitFirstAudioFrame = false;
-        }
-    }
-    /*
-    qDebug()  << "audio packet arrive";
-    PAV_PACKET pPacket = nullptr;
-    while(m_pMediaReader->GetStreamReader()->GetAudioPacket(pPacket))
-    {
-
-        qDebug() << "write audio packet" << m_audioDecoderBuffer.size();
-        m_audioDecoderBuffer.buffer().append(pPacket->data);
-            delete pPacket;
-
-        m_pAudioDecoder->start();
-
-
-        qDebug() << "write audio packet" << pPacket << pPacket->timestamp <<   m_pAudioDecoder->state();;
-
-
-        qDebug() << "write audio packet finished" << m_audioDecoderBuffer.size();
-    pPacket = nullptr;
-
-    }
-    */
 }
+
 void MainWindow::on_audio_frame()
 {
     /*
@@ -293,7 +203,6 @@ void MainWindow::on_audio_frame()
 
 void MainWindow::on_video_decode_finshed()
 {
-      qInfo() << "on_video_decode_finished";
     m_bVideoDecoderFinished = true;
 
     if(m_bNeedAVSync)
@@ -310,7 +219,7 @@ void MainWindow::on_video_decode_finshed()
 }
 void MainWindow::on_audio_decode_finished()
 {
-    qInfo() << "on_audio_decode_finished";
+
     m_bAudioDecodeFinished = true;
     if(m_bAudioDecodeFinished && m_bVideoDecoderFinished)
     {
@@ -322,7 +231,7 @@ void MainWindow::on_close_player()
     if(m_nPlayerState != PLAYER_PLAYING)
         return;
 
-
+    m_pStreamDecoder->DisableOutputFrame();
 
    // m_pRender->Clear();
     m_pDirectXRender->Clear();
@@ -333,30 +242,86 @@ void MainWindow::on_close_player()
     qInfo() <<"11111111111111111";
     if(m_pAudioPlayer != nullptr)
     {
+        m_pAudioPlayer->Stop();
         m_pAudioPlayer->Release();
         m_pAudioPlayer = nullptr;
     }
-    qInfo() <<"111111111111111112";
+
     if(m_pStreamDecoder != nullptr)
     {
         m_pStreamDecoder->Release();
         m_pStreamDecoder = nullptr;
     }
-    qInfo() <<"111111111111111113";
+
     if(m_pMediaReader != nullptr)
     {
         m_pMediaReader->Release();
         m_pMediaReader = nullptr;
     }
-    qInfo() <<"111111111111111114";
+
+
+    for(int i = 0; i < m_audioFrames.size(); i++)
+        delete m_audioFrames.at(i);
+    m_audioFrames.clear();
 
     update_player_state(PLAYER_IDLE);
 }
 
-void MainWindow::update_timestamp(quint64 cur)
+void MainWindow::on_update_timestamp(quint64 cur)
 {
     if(m_context.duration <= 0)
         return;
+
+
+    if(m_nPlayerState != PLAYER_PLAYING)
+        return;
+
+    PAV_PACKET pPacket = nullptr;
+    int nPushCount = 0;
+
+    quint64 maxTimeStamp = 0;
+    quint64 minTimeStamp = 0;
+
+    if(m_bNeedAVSync)
+    {
+        QMutexLocker locker(&m_locker);
+        maxTimeStamp = MAX_TIMESTAMP(m_currentTimeStamp);
+        minTimeStamp = MIN_TIMESTAMP(m_currentTimeStamp);
+    }
+
+    while(true)
+    {
+        QMutexLocker locker(&m_locker);
+        if(m_bNeedAVSync)
+        {
+            m_pMediaReader->GetStreamReader()->GetAudioPacket(pPacket, maxTimeStamp);
+        }
+        else
+            m_pMediaReader->GetStreamReader()->GetAudioPacket(pPacket);
+
+        if(pPacket == nullptr)
+            break;
+
+        m_audioFrames.push_back(pPacket);
+        pPacket = nullptr;
+
+
+
+
+        int i = 0;
+        for(i = 0; i < m_audioFrames.size(); i++)
+        {
+            if(m_audioFrames.at(i)->timestamp >= minTimeStamp)
+                break;
+
+            delete m_audioFrames.at(i);
+        }
+
+        while(i-- > 0)
+        {
+            m_audioFrames.takeFirst();
+        }
+    }
 
 
 
@@ -400,47 +365,60 @@ void MainWindow::on_open_clicked()
     {
         m_pMediaReader = new FlvReader();
 
-        qInfo() << "11111";
         m_pStreamDecoder = new StreamDecoder();
-        qInfo() << "2222";
 
-        /*
-        QAudioFormat format;
-        // Set up the format, eg.
-        format.setSampleRate(44100);
-        format.setChannelCount(2);
-        format.setSampleSize(32);
-        format.setCodec("audio/pcm");
-        format.setByteOrder(QAudioFormat::LittleEndian);
-        format.setSampleType(QAudioFormat::UnSignedInt);
 
-        m_pSpeaker = new QAudioOutput(format, this);
-        //connect(audio, SIGNAL(stateChanged(QAudio::State)), this, SLOT(handleStateChanged(QAudio::State)));
-        m_pSpeakerIO = m_pSpeaker->start();
-                m_pAudioDecoder = new QAudioDecoder();
-                m_pAudioDecoder->setAudioFormat(format);
-                m_pAudioDecoder->setSourceDevice(&m_audioDecoderBuffer);
-m_audioDecoderBuffer.open(QIODevice::ReadWrite);
-                //m_pAudioDecoder->setSourceFilename("C:\\Users\\Public\\fans_qinghuaci.mp3");
-
-                m_pAudioDecoder->start();
-                qDebug() << "Audio Decoder:" << m_pAudioDecoder->state();
-*/
-        connect(m_pStreamDecoder, SIGNAL(frameArrived(void*)), this, SLOT(on_frame_arrived(void*)));
+        connect(this, SIGNAL(update_timestamp(quint64)), this, SLOT(on_update_timestamp(quint64)));
+        connect(m_pStreamDecoder, SIGNAL(frameArrived(void*)), this, SLOT(on_frame_arrived(void*)), Qt::DirectConnection);
         connect((FlvReader*)m_pMediaReader, SIGNAL(new_audio_packet()), this, SLOT(on_audio_packet()));
         connect(m_pAudioDecoder, SIGNAL(bufferReady()), this, SLOT(on_audio_frame()));
         connect(this, SIGNAL(audioDecodeFinished()), this, SLOT(on_audio_decode_finished()));
         connect(m_pStreamDecoder, SIGNAL(decodeFinished()), this, SLOT(on_video_decode_finshed()));
+        connect(m_pStreamDecoder, SIGNAL(firstFrameNotify()), this, SLOT(on_first_frame_arrived()));
+
 
         m_pMediaReader->Open(fileName);
         m_pMediaReader->GetMediaContext(m_context);
 
+        m_pAudioPlayer = CreateZPlay();
+        m_pAudioPlayer->SetSettings(sidWaveBufferSize, 900);
+
+        while(true)
+        {
+            PAV_PACKET pPacket = nullptr;
+
+            m_pMediaReader->GetStreamReader()->GetAudioPacket(pPacket);
+
+
+            if(pPacket == nullptr)
+            {
+                continue;
+            }
+
+            m_audioHeadFrame.append(pPacket->data);
+
+            delete pPacket;
+
+
+            if(m_pAudioPlayer->OpenStream(1, 1, m_audioHeadFrame.data(), m_audioHeadFrame.size(), sfMp3))
+            {
+                m_pAudioPlayer->SetCallbackFunc(zplayCallbackFunc, (TCallbackMessage) (MsgStreamNeedMoreData | MsgStop) , this);
+                break;
+            }
+
+        }
+        m_pAudioPlayer->Play();
+
+
         m_pStreamDecoder->SetStream(m_pMediaReader->GetStreamReader());
+        m_pStreamDecoder->SetFrameRate(m_context.framerate);
+
         m_pStreamDecoder->RunDecoder();
 
-        m_pAudioPlayer = CreateZPlay();
+
+
+
         m_bNeedAVSync = true;
-        m_bWaitFirstAudioFrame = true;
         m_currentTimeStamp = 0;
 
         m_bVideoDecoderFinished = false;

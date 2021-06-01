@@ -25,7 +25,7 @@ HRESULT CompileShaderFromFile(char* fiel_name, LPCSTR szEntryPoint, LPCSTR szSha
     {
         if ( pErrorBlob != NULL )
         {
-            OutputDebugStringA(( char* ) pErrorBlob->GetBufferPointer());
+            //OutputDebugStringA(( char* ) pErrorBlob->GetBufferPointer());
         }
         if ( pErrorBlob ) pErrorBlob->Release();
         return hr;
@@ -35,12 +35,91 @@ HRESULT CompileShaderFromFile(char* fiel_name, LPCSTR szEntryPoint, LPCSTR szSha
     return S_OK;
 }
 
+
+
+class QRenderThread : public QThread
+{
+
+public:
+    explicit QRenderThread(){
+
+    }
+    ~QRenderThread(){
+        Stop();
+    }
+
+    void Run(QDirectXRender* pRender, int duration = 40);
+
+    void Stop();
+public slots:
+    void renderFrame();
+protected:
+    QTimer* m_pTimer;
+    QDirectXRender* m_pRender;
+
+    bool m_bRun;
+protected:
+    virtual void	run();
+};
+
+
+
+void QRenderThread::Run(QDirectXRender* pRender, int duration)
+{
+
+    m_pRender = pRender;
+
+m_bRun = true;
+start(HighestPriority);
+
+//OutputDebugStringA("qrenderthread run-------");
+}
+void QRenderThread::Stop()
+{
+    //m_pTimer->stop();
+    //delete m_pTimer;
+m_bRun = false;
+    //quit();
+    wait();
+}
+
+void QRenderThread::renderFrame()
+{
+    m_pRender->timeRendering();
+}
+void QRenderThread::run()
+{
+while(m_bRun)
+{
+    renderFrame();
+    msleep(10);
+    //OutputDebugStringA("i am rendering");
+}
+
+/*
+m_pTimer = new QTimer();
+connect(m_pTimer, SIGNAL(timeout()), this, SLOT(renderFrame()), Qt::DirectConnection);
+m_pTimer->setTimerType(Qt::PreciseTimer);
+ m_pTimer->start(10);
+    exec();
+    */
+
+/*
+while(true)
+{
+    qInfo() << "11111" << GetTickCount();
+    msleep(40);
+}
+*/
+}
+
 struct SimpleVertex
 {
     XMFLOAT4 Pos;
     XMFLOAT2 TexCoord;
 };
 
+QRenderThread g_renderThread;
 QDirectXRender::QDirectXRender(QWidget *parent) : QWidget(parent)
 {
     g_pD3D11SwapChain = NULL;
@@ -55,15 +134,18 @@ QDirectXRender::QDirectXRender(QWidget *parent) : QWidget(parent)
     m_pCurrentSurface = NULL;
 
     setAttribute(Qt::WA_PaintOnScreen, 1);
-
+/*
     connect(&m_tickRender, SIGNAL(timeout()), this, SLOT(timeRendering()));
     m_tickRender.setInterval(1000 / 60);
     m_tickRender.start();
+*/
+    g_renderThread.Run(this);
 }
 
 QDirectXRender::~QDirectXRender()
 {
-    m_tickRender.stop();
+    g_renderThread.Stop();
+    //m_tickRender.stop();
     Clear();
 
     if ( g_pD3D11Ctx ) g_pD3D11Ctx->ClearState();
@@ -80,19 +162,22 @@ QDirectXRender::~QDirectXRender()
 
 void QDirectXRender::SetFrame(PAV_FRAME pFrame)
 {
+    QMutexLocker render(&m_mutexRender);
     if(NULL == pFrame)
         return;
 
-    if(m_pCurrentSurface)
+    m_pCurrentSurface = pFrame->pSurface;
+
+    RenderSurface(pFrame->pSurface);
+
+    if(m_pCurrentSurface != NULL)
     {
-        qInfo() << "locker 111111111111111111111";
         QMutexLocker lock((QMutex*)m_pCurrentSurface->reserved[0]);
-         qInfo() << "locker 111111111111111111112";
         m_pCurrentSurface->reserved[1] = 0;
     }
 
-    RenderSurface(pFrame->pSurface);
-    m_pCurrentSurface = pFrame->pSurface;
+
+
 }
 
 void QDirectXRender::Clear()
@@ -251,7 +336,7 @@ bool QDirectXRender::ResetRender()
     g_pD3D11Ctx->VSSetShader(g_pVertexShader, NULL, 0);
     g_pD3D11Ctx->PSSetShader(g_pPixelShader, NULL, 0);
 
-    RenderSurface(m_pCurrentSurface);
+    //RenderSurface(m_pCurrentSurface);
     return true;
 }
 
@@ -302,11 +387,12 @@ void QDirectXRender::RenderSurface(mfxFrameSurface1* pSurface)
 
     g_pD3D11Ctx->PSSetShaderResources( 0, 2, pSRV->views);
     g_pD3D11Ctx->Draw(6, 0);
-    g_pD3D11SwapChain->Present(1, 0);
+    //g_pD3D11SwapChain->Present(1, 0);
 
 }
 void QDirectXRender::resizeEvent(QResizeEvent * event)
 {
+     QMutexLocker render(&m_mutexRender);
     ResetRender();
 }
 
@@ -318,12 +404,14 @@ QPaintEngine * QDirectXRender::paintEngine() const
 
 void QDirectXRender::paintEvent(QPaintEvent *)
 {
+     QMutexLocker render(&m_mutexRender);
     if(g_pD3D11SwapChain)
         g_pD3D11SwapChain->Present(1, 0);
 }
 
 void QDirectXRender::timeRendering()
 {
+     QMutexLocker render(&m_mutexRender);
     if(g_pD3D11SwapChain)
         g_pD3D11SwapChain->Present(1, 0);
 }

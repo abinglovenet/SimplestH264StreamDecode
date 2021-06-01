@@ -1,17 +1,18 @@
 #include "mainwindow.h"
 
 #include <QApplication>
-#define ENABLE_MSG 0
+//#define ENABLE_MSG 1
 void myMessageOutput(QtMsgType type, const QMessageLogContext &context, const QString &msg)
 {
 #ifdef ENABLE_MSG
-    QByteArray localMsg = msg.toLocal8Bit();
+    //QByteArray localMsg = msg.toLocal8Bit();
     switch (type) {
     case QtDebugMsg:
         //fprintf(stderr, "Debug: %s (%s:%u, %s)\n", localMsg.constData(), context.file, context.line, context.function);
         break;
     case QtInfoMsg:
-        fprintf(stderr, "Info: %s (%s:%u, %s)\n", localMsg.constData(), context.file, context.line, context.function);
+        //OutputDebugString(msg.toStdWString().c_str());
+        //fprintf(stderr, "Info:%llu  %s (%s:%u, %s)\n", GetTickCount64(), localMsg.constData(), context.file, context.line, context.function);
         break;
     case QtWarningMsg:
         //fprintf(stderr, "Warning: %s (%s:%u, %s)\n", localMsg.constData(), context.file, context.line, context.function);
@@ -20,7 +21,7 @@ void myMessageOutput(QtMsgType type, const QMessageLogContext &context, const QS
         //fprintf(stderr, "Critical: %s (%s:%u, %s)\n", localMsg.constData(), context.file, context.line, context.function);
         break;
     case QtFatalMsg:
-        fprintf(stderr, "Fatal: %s (%s:%u, %s)\n", localMsg.constData(), context.file, context.line, context.function);
+        //fprintf(stderr, "Fatal: %s (%s:%u, %s)\n", localMsg.constData(), context.file, context.line, context.function);
         abort();
     }
 #endif

@@ -47,14 +47,8 @@ mfxStatus Initialize(mfxIMPL impl, mfxVersion ver, MFXVideoSession* pSession, mf
 #if defined(DX9_D3D) || defined(DX11_D3D)
     // If mfxFrameAllocator is provided it means we need to setup DirectX device and memory allocator
     if (pmfxAllocator) {
-        // Create DirectX device context
-        mfxHDL deviceHandle;
-        qInfo() << "3444444";
-        //sts = CreateHWDevice(*pSession, &deviceHandle, NULL, bCreateSharedHandles);
-        MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
-        qInfo() << "3444445";
-        // Provide device manager to Media SDK
 
+        mfxHDL deviceHandle;
         deviceHandle = (mfxHDL)::GetDirectXDeviceHanle();
         sts = pSession->SetHandle(DEVICE_MGR_TYPE, deviceHandle);
         MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
