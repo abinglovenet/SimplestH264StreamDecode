@@ -75,7 +75,7 @@ void QImageRender::SetFrame(PAV_FRAME pFrame)
 {
 //#define TRACE_IMAGE
 #ifdef TRACE_IMAGE
-    qInfo() << "111111112423424" << pFrame->width << pFrame->height;
+    //qInfo() << "111111112423424" << pFrame->width << pFrame->height;
     static QFile file("");
     QString fileName = QString::asprintf("C:\\Users\\Public\\temp\\%x.rgb", &pFrame->data);
     file.setFileName(fileName);
@@ -154,8 +154,8 @@ void QImageRender::initializeGL()
 
     };
 
-    qDebug() << pstrVertexShader;
-    qDebug() << pstrFragmentShader;
+    //qDebug() << pstrVertexShader;
+    //qDebug() << pstrFragmentShader;
 
     m_pShaderProgram = new  QOpenGLShaderProgram(this);
     m_pShaderProgram->addShaderFromSourceCode(QOpenGLShader::Vertex, pstrVertexShader);

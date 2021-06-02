@@ -30,7 +30,7 @@
 #include "mfxplugin.h"
 
 #include <QByteArray>
-#include <QDebug>
+#include <qDebug>
 
 // =================================================================
 // OS-specific definitions of types, macro, etc...

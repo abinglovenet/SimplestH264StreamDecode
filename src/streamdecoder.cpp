@@ -37,11 +37,11 @@ StreamDecoder::StreamDecoder(QObject *parent) : QThread(parent)
 
 StreamDecoder::~StreamDecoder()
 {
-    qInfo() << "delete stream decoder...1";
+    //qInfo() << "delete stream decoder...1";
     StopDecoder();
-    qInfo() << "delete stream decoder...2";
+    //qInfo() << "delete stream decoder...2";
     delete m_pDecoder;
-    qInfo() << "delete stream decoder...3";
+    //qInfo() << "delete stream decoder...3";
 
     //::Release();
     delete m_bs.Data;
@@ -101,14 +101,14 @@ STREAM_CODER_ERRORCODE  StreamDecoder::RunDecoder()
 
     while((sts = m_pDecoder->DecodeHeader(&m_bs, &param)) == MFX_ERR_MORE_DATA)
     {
-        qInfo() << "DecodeHeader Need more data";
+        //qInfo() << "DecodeHeader Need more data";
         ReadPacket();
     }
 
 
     if(sts != MFX_ERR_NONE)
     {
-        qDebug() << "decode header failed" << sts;
+        //qDebug() << "decode header failed" << sts;
         return SC_DECODE_HEADER_FAILED;
     }
 
@@ -123,13 +123,13 @@ STREAM_CODER_ERRORCODE  StreamDecoder::RunDecoder()
     sts = m_pDecoder->QueryIOSurf(&paramValid, &request);
     request.Type |= MFX_MEMTYPE_VIDEO_MEMORY_DECODER_TARGET;
     request.Type |= WILL_READ;
-    qDebug() << "m_pDecoder->QueryIOSurf" << request.Type;
+    //qDebug() << "m_pDecoder->QueryIOSurf" << request.Type;
     // error code process
 
 
     request.NumFrameSuggested += MAX_BUFFERED_FRAMES * 2;
     sts = m_frameAllocator.Alloc(m_frameAllocator.pthis, &request, &m_response);
-    qDebug() << "m_frameAllocator.Alloc " << sts << m_response.NumFrameActual;
+    //qDebug() << "m_frameAllocator.Alloc " << sts << m_response.NumFrameActual;
     // error code process
 
 
@@ -255,7 +255,7 @@ void StreamDecoder::ScheduleOutputFrame()
         if((GetTickCount() - m_recentBeginTick) >= 1000)
         {
             sprintf(szBuffer, "total framerate:%f current framerate:%f", (float)m_nTotalFrames * 1000 / (GetTickCount() - m_beginTick), (float)m_nRecentFrameNum * 1000 / (GetTickCount() - m_recentBeginTick));
-            OutputDebugStringA(szBuffer);
+            qInfo() << szBuffer;
             m_recentBeginTick = GetTickCount();
             m_nRecentFrameNum = 0;
         }
@@ -274,7 +274,7 @@ bool StreamDecoder::ReadPacket()
     PAV_PACKET temp;
     m_pVideoStream->GetVideoPacket(temp);
 
-    qDebug() << "bitstream : offset " << m_bs.DataOffset << " " << m_bs.DataLength << " " << m_bs.MaxLength;
+    //qDebug() << "bitstream : offset " << m_bs.DataOffset << " " << m_bs.DataLength << " " << m_bs.MaxLength;
     memmove(m_bs.Data, m_bs.Data + m_bs.DataOffset, m_bs.DataLength);
     m_bs.DataOffset = 0;
 
@@ -293,7 +293,7 @@ bool StreamDecoder::ReadPacket()
     while(buffer.append(file.read(1024)).size() > 0)
     {
 
-        // qInfo() << buffer.toHex();
+        // //qInfo() << buffer.toHex();
 
         if((nPos = buffer.indexOf(split1)) != -1)
         {
@@ -301,7 +301,7 @@ bool StreamDecoder::ReadPacket()
             file.seek(file.pos() - (buffer.size() - nPos - split1.size()));
             buffer = buffer.left(nPos);
             buffer.prepend(split1);
-            qInfo() << "position" << file.pos() << buffer.size();
+            //qInfo() << "position" << file.pos() << buffer.size();
 
             break;
         }
@@ -332,7 +332,7 @@ bool StreamDecoder::ReadPacket()
         file.close();
     }
     //#endif
-    qInfo() << buffer.toHex().left(32) << buffer.toHex().right(32);
+    //qInfo() << buffer.toHex().left(32) << buffer.toHex().right(32);
     m_bs.DecodeTimeStamp = framecount * 40 * 90;
     m_bs.TimeStamp = MFX_TIMESTAMP_UNKNOWN;
     memcpy(m_bs.Data + m_bs.DataLength, buffer.data(), buffer.size());
@@ -429,7 +429,7 @@ void StreamDecoder::run()
             if(pOutSurface)
             {
 
-                //qInfo() << "Out Frame time stamp" << pOutSurface->Data.TimeStamp / 90;
+                ////qInfo() << "Out Frame time stamp" << pOutSurface->Data.TimeStamp / 90;
                 PAV_FRAME pFrame = new AV_FRAME();
                 pFrame->height = pOutSurface->Info.Height;
 

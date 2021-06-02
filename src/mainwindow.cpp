@@ -79,7 +79,7 @@ void MainWindow::NotifyAudioDecodeFinished()
 
 void MainWindow::TransferAudioDataToZPlay()
 {
-    //qInfo() << "TransferAudioDataToZPlay";
+    ////qInfo() << "TransferAudioDataToZPlay";
     if(m_nPlayerState != PLAYER_PLAYING)
         return;
 
@@ -195,7 +195,7 @@ void MainWindow::on_audio_packet()
 void MainWindow::on_audio_frame()
 {
     /*
-    qDebug() << "MainWindow::on_audio_frame()";
+    //qDebug() << "MainWindow::on_audio_frame()";
     if(m_pAudioDecoder->bufferAvailable())
     m_audioFrames.push_back(m_pAudioDecoder->read());
     */
@@ -239,10 +239,10 @@ void MainWindow::on_close_player()
     ui->progress->setValue(0);
     ui->progress->setRange(0, 0);
 
-    qInfo() <<"11111111111111111";
     if(m_pAudioPlayer != nullptr)
     {
-        m_pAudioPlayer->Stop();
+
+        m_pAudioPlayer->Close();
         m_pAudioPlayer->Release();
         m_pAudioPlayer = nullptr;
     }
@@ -259,7 +259,7 @@ void MainWindow::on_close_player()
         m_pMediaReader = nullptr;
     }
 
-
+    m_audioHeadFrame.clear();
     for(int i = 0; i < m_audioFrames.size(); i++)
         delete m_audioFrames.at(i);
     m_audioFrames.clear();

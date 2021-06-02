@@ -107,7 +107,7 @@ m_pTimer->setTimerType(Qt::PreciseTimer);
 /*
 while(true)
 {
-    qInfo() << "11111" << GetTickCount();
+    //qInfo() << "11111" << GetTickCount();
     msleep(40);
 }
 */
@@ -373,7 +373,7 @@ void QDirectXRender::RenderSurface(mfxFrameSurface1* pSurface)
         psRVDes.Texture2D.MostDetailedMip = 0;
         ID3D11Texture2D* pTexture = ::GetTexture(pSurface);
         if(pTexture == NULL)
-            qInfo() << "error texture";
+            qInfo() << "Unable to find the corresponding texture";
         g_pD3D11Device->CreateShaderResourceView(pTexture, &psRVDes, &pSRV->views[0]);
 
         psRVDes.Format = DXGI_FORMAT_R8G8_UINT;

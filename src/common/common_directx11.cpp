@@ -225,7 +225,7 @@ mfxStatus _simple_alloc(mfxFrameAllocRequest* request, mfxFrameAllocResponse* re
 {
     HRESULT hRes;
 
-    qDebug() << request->Info.Width << "x" << request->Info.Height;
+    //qDebug() << request->Info.Width << "x" << request->Info.Height;
     // Determine surface format
     DXGI_FORMAT format;
     if (MFX_FOURCC_NV12 == request->Info.FourCC)
@@ -242,7 +242,7 @@ mfxStatus _simple_alloc(mfxFrameAllocRequest* request, mfxFrameAllocResponse* re
     if (DXGI_FORMAT_UNKNOWN == format)
         return MFX_ERR_UNSUPPORTED;
 
-    qDebug() << "format:" << format;
+    //qDebug() << "format:" << format;
 
     // Allocate custom container to keep texture and stage buffers for each surface
     // Container also stores the intended read and/or write operation.
@@ -323,12 +323,12 @@ mfxStatus _simple_alloc(mfxFrameAllocRequest* request, mfxFrameAllocResponse* re
 
             if (FAILED(hRes))
             {
-                qDebug() << "Create Texture2D Failed";
+                //qDebug() << "Create Texture2D Failed";
                 return MFX_ERR_MEMORY_ALLOC;
             }
 
             mids[i]->memId = pTexture2D;
-            qDebug("Create Texture2D  success : %x", pTexture2D);
+            //qDebug("Create Texture2D  success : %x", pTexture2D);
         }
 
         desc.ArraySize      = 1;
@@ -346,7 +346,7 @@ mfxStatus _simple_alloc(mfxFrameAllocRequest* request, mfxFrameAllocResponse* re
                 return MFX_ERR_MEMORY_ALLOC;
 
             mids[i]->memIdStage = pTexture2D;
-            qDebug("Create Texture2D stage  success : %x", pTexture2D);
+            //qDebug("Create Texture2D stage  success : %x", pTexture2D);
         }
     }
 
@@ -355,7 +355,7 @@ mfxStatus _simple_alloc(mfxFrameAllocRequest* request, mfxFrameAllocResponse* re
     response->NumFrameActual = request->NumFrameSuggested;
 
     for(int i = 0; i < response->NumFrameActual; i++)
-        qDebug("surface: response mid:%x - %x  num frame suggested:%d", response->mids[i], mids[i]->memId, request->NumFrameSuggested);
+        //qDebug("surface: response mid:%x - %x  num frame suggested:%d", response->mids[i], mids[i]->memId, request->NumFrameSuggested);
     return MFX_ERR_NONE;
 }
 
@@ -420,14 +420,14 @@ mfxStatus simple_lock(mfxHDL pthis, mfxMemId mid, mfxFrameData* ptr)
         if (memId->rw & WILL_READ)
         {
             g_pD3D11Ctx->CopySubresourceRegion(pStage, 0, 0, 0, 0, pSurface, 0, NULL);
-            qDebug() << "i want read";
+            //qDebug() << "i want read";
         }
 
         do {
             hRes = g_pD3D11Ctx->Map(pStage, 0, mapType, mapFlags, &lockedRect);
             if (S_OK != hRes && DXGI_ERROR_WAS_STILL_DRAWING != hRes)
             {
-                qDebug() << "lock failed";
+                //qDebug() << "lock failed";
                 return MFX_ERR_LOCK_MEMORY;
             }
         } while (DXGI_ERROR_WAS_STILL_DRAWING == hRes);

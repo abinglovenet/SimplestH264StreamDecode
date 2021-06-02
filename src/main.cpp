@@ -1,8 +1,8 @@
 #include "mainwindow.h"
 
 #include <QApplication>
-//#define ENABLE_MSG 1
-void myMessageOutput(QtMsgType type, const QMessageLogContext &context, const QString &msg)
+#define ENABLE_MSG 1
+void appMessageOutput(QtMsgType type, const QMessageLogContext &context, const QString &msg)
 {
 #ifdef ENABLE_MSG
     //QByteArray localMsg = msg.toLocal8Bit();
@@ -11,7 +11,7 @@ void myMessageOutput(QtMsgType type, const QMessageLogContext &context, const QS
         //fprintf(stderr, "Debug: %s (%s:%u, %s)\n", localMsg.constData(), context.file, context.line, context.function);
         break;
     case QtInfoMsg:
-        //OutputDebugString(msg.toStdWString().c_str());
+        OutputDebugString(msg.toStdWString().c_str());
         //fprintf(stderr, "Info:%llu  %s (%s:%u, %s)\n", GetTickCount64(), localMsg.constData(), context.file, context.line, context.function);
         break;
     case QtWarningMsg:
@@ -29,7 +29,7 @@ void myMessageOutput(QtMsgType type, const QMessageLogContext &context, const QS
 
 int main(int argc, char *argv[])
 {
-    qInstallMessageHandler(myMessageOutput);
+    qInstallMessageHandler(appMessageOutput);
     //qInstallMessageHandler(0);
     QApplication a(argc, argv);
     MainWindow w;

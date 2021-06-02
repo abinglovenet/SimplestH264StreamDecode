@@ -1,7 +1,7 @@
 #ifndef FLVREADER_H
 #define FLVREADER_H
 
-#include <QDebug>
+#include <qDebug>
 #include <QString>
 #include <QByteArrayList>
 #include <QFile>

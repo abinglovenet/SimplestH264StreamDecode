@@ -23,7 +23,6 @@ bool FlvReader::Open(QString path)
 
 
         qint64 size = m_fVideoReader.bytesAvailable();
-        qDebug() << sizeof(m_header);
         m_fVideoReader.read((char*)&m_header, sizeof(m_header));
         m_fAudioReader.read((char*)&m_header, sizeof(m_header));
 
@@ -65,11 +64,13 @@ bool FlvReader::Open(QString path)
         // AMF Value
         type = data_script.at(0);
         data_script.remove(0, 1);
-        // qInfo() << "TAG SCRIPT VALUE" << type;
+
         if(type == 0x08)
         {
             quint32 count = qFromBigEndian<quint32>((const uchar*)data_script.left(4).toStdString().c_str());
             data_script.remove(0, 4);
+
+            qInfo() << "Media information:";
             while(count--)
             {
                 // Property
@@ -87,12 +88,15 @@ bool FlvReader::Open(QString path)
                 {
                     prop_value = data_script.left(sizeof(double));
                     data_script.remove(0, sizeof(double));
+                    qint64 temp = qFromBigEndian<qint64>((const uchar*)prop_value.toStdString().c_str());
+                    qInfo() << prop_name << ":" << *((double*)&temp);
 
                 }
                 else if(prop_value_type == 0x01)
                 {
                     prop_value = data_script.left(sizeof(bool));
                     data_script.remove(0, sizeof(bool));
+                    qInfo() << prop_name << ":" << prop_value;
                 }
                 else if(prop_value_type == 0x02)
                 {
@@ -100,6 +104,8 @@ bool FlvReader::Open(QString path)
                     data_script.remove(0, 2);
                     prop_value = data_script.left(length);
                     data_script.remove(0, length);
+
+                    qInfo() << prop_name << ":" << prop_value;
                 }
                 if(strcmp(prop_name.toStdString().c_str(), "duration") == 0)
                 {
@@ -114,6 +120,8 @@ bool FlvReader::Open(QString path)
                     m_context.framerate = *((double*)&temp);
 
                 }
+
+
 
             }
         }
@@ -133,7 +141,11 @@ bool FlvReader::Open(QString path)
         m_fVideoReader.seek(lastValidPos);
         m_fAudioReader.seek(lastValidPos);
         m_bRun = true;
+
+
         start();
+
+
         return true;
     }while(false);
 
@@ -225,7 +237,7 @@ bool FlvReader::GetAudioPacket(PAV_PACKET& pPacket, quint64 maxTimeStamp)
     }
 
     pPacket = m_listAudioPackets.takeFirst();
-    qInfo() << "Audio Packet timestamp:" << pPacket->timestamp;
+
     return true;
 }
 bool FlvReader::GetAudioPacket(PAV_PACKET& pPacket)
@@ -237,8 +249,6 @@ bool FlvReader::GetAudioPacket(PAV_PACKET& pPacket)
         return false;
 
     pPacket = m_listAudioPackets.takeFirst();
-
-    qInfo() << "Audio Packet timestamp:" << pPacket->timestamp;
 
     return true;
 }
@@ -252,7 +262,6 @@ bool FlvReader::IsAudioStreamEnd()
 
 bool FlvReader::SeekToNextVideoTag()
 {
-    qDebug()<<"FlvReader::SeekToNextVideoTag begin";
     do
     {
 
@@ -260,7 +269,7 @@ bool FlvReader::SeekToNextVideoTag()
         qint64 byteAvail = m_fVideoReader.bytesAvailable();
         if(byteAvail < minTagHeaderSize)
         {
-            qDebug()<<"m_fVideoReader.bytesAvailable() < minTagHeaderSize| bytesAvail:" << byteAvail  << "minTagHeaderSize:" << minTagHeaderSize ;
+            //qDebug()<<"m_fVideoReader.bytesAvailable() < minTagHeaderSize| bytesAvail:" << byteAvail  << "minTagHeaderSize:" << minTagHeaderSize ;
             if(!m_fVideoReader.atEnd())
             {
                 m_fVideoReader.seek(m_fVideoReader.size());
@@ -274,27 +283,26 @@ bool FlvReader::SeekToNextVideoTag()
         quint32 nPreviousTagSize;
         if(m_fVideoReader.read((char*)&nPreviousTagSize, 4) == -1)
         {
-            qDebug()<<"m_fVideoReader.read(4).isEmpty()";
+            //qDebug()<<"m_fVideoReader.read(4).isEmpty()";
 
             break;
         }
 
-        qDebug() << "previous tag size:%d" << qFromBigEndian(nPreviousTagSize);
+        //qDebug() << "previous tag size:%d" << qFromBigEndian(nPreviousTagSize);
 
         if(m_fVideoReader.read((char*)&m_currentTagHeaderForVideo, sizeof(FLV_TAG_HEADER)) == -1)
         {
-            qDebug()<<"m_fVideoReader.read((char*)&m_currentTagHeaderForVideo, sizeof(FLV_TAG_HEADER)) == -1)";
+            //qDebug()<<"m_fVideoReader.read((char*)&m_currentTagHeaderForVideo, sizeof(FLV_TAG_HEADER)) == -1)";
             break;
         }
 
         m_currentTagHeaderForVideo.timestamp = qFromBigEndian(m_currentTagHeaderForVideo.timestamp) >> 8;
         m_currentTagHeaderForVideo.timestamp |= m_currentTagHeaderForVideo.exstamp << 24;
         m_currentTagHeaderForVideo.size = qFromBigEndian(m_currentTagHeaderForVideo.size) >> 8;
-        qDebug() << sizeof(FLV_TAG_HEADER) << " " << m_currentTagHeaderForVideo.size;
+        //qDebug() << sizeof(FLV_TAG_HEADER) << " " << m_currentTagHeaderForVideo.size;
 
         if(m_currentTagHeaderForVideo.type == FLV_TAG_VIDEO && m_fVideoReader.bytesAvailable() >= m_currentTagHeaderForVideo.size)
         {
-            qDebug()<<"FlvReader::SeekToNextVideoTag success";
             return true;
         }
 
@@ -302,39 +310,37 @@ bool FlvReader::SeekToNextVideoTag()
                 (m_currentTagHeaderForVideo.type != FLV_TAG_AUDIO) &&
                 (m_currentTagHeaderForVideo.type != FLV_TAG_SCRIPT))
         {
-            qDebug()<<"m_currentTagHeaderForVideo.type : "<<m_currentTagHeaderForVideo.type;
+            //qDebug()<<"m_currentTagHeaderForVideo.type : "<<m_currentTagHeaderForVideo.type;
             break;
         }
 
 
         if(m_fVideoReader.bytesAvailable() < m_currentTagHeaderForVideo.size)
         {
-            qDebug()<<"m_fVideoReader.bytesAvailable() < m_currentTagHeaderForVideo.size "<<m_fVideoReader.bytesAvailable() <<":"<<m_currentTagHeaderForVideo.size;
+            //qDebug()<<"m_fVideoReader.bytesAvailable() < m_currentTagHeaderForVideo.size "<<m_fVideoReader.bytesAvailable() <<":"<<m_currentTagHeaderForVideo.size;
             m_fVideoReader.seek(m_fVideoReader.size());
             break;
         }
         if(m_fVideoReader.read(m_currentTagHeaderForVideo.size).isEmpty())
         {
-            qDebug() << "m_fVideoReader.read(m_currentTagHeaderForVideo.size).isEmpty()";
+            //qDebug() << "m_fVideoReader.read(m_currentTagHeaderForVideo.size).isEmpty()";
             break;
         }
     }while(true);
 
-    qDebug()<<"FlvReader::SeekToNextVideoTag failed";
+    //qDebug()<<"FlvReader::SeekToNextVideoTag failed";
     return false;
 }
 
 // video tag process
 void FlvReader::ParseVideoTag()
 {
-    qDebug()<<"FlvReader::ParseVideoTag begin";
+
     VIDEO_TAG_PARAM param;
     m_fVideoReader.read((char*)&param, sizeof(param));
-    qDebug("%x", *((quint8* )&param));
-    qDebug()<<"param.codec_id" << param.codec_id;
+
     if(param.codec_id == 7)
     {
-        qDebug()<<"param.codec_id == 7";
         ParseAVCVideoPacket();
     }
     else
@@ -345,11 +351,10 @@ void FlvReader::ParseVideoTag()
 // video tag process : H264
 void FlvReader::ParseAVCVideoPacket()
 {
-    qDebug() << "FlvReader::ParseAVCVideoPacket begin";
     AVC_VIDEO_PACKET_HEADER header;
     m_fVideoReader.read((char*)&header, sizeof(header));
     header.composition_time = qFromBigEndian(header.composition_time) >> 8;
-    qDebug() << "PacketType:"<<header.packet_type;
+
     switch(header.packet_type)
     {
     case 0:
@@ -367,23 +372,22 @@ void FlvReader::ParseAVCVideoPacket()
 
 void FlvReader::ParseAVCVideoConfig(AVC_VIDEO_PACKET_HEADER header)
 {
-    qDebug() << "FlvReader::ParseAVCVideoConfig";
     AVC_VIDEO_CONFIG_HEADER avc_config;
     m_fVideoReader.read((char*)&avc_config, sizeof(avc_config));
     AVC_VIDEO_CONFIG_SPS sps;
     m_fVideoReader.read((char*)&sps, sizeof(sps));
     sps.num_sps &= 0x1F;
 
-    qDebug() << "FlvReader::ParseAVCVideoConfig sps number:" << sps.num_sps;
+
     for(int i = 0; i < sps.num_sps; i++)
     {
         quint16 length = 0;
         m_fVideoReader.read((char*)&length, 2);
-        qDebug() << "sps length" << length ;
+
         length = qFromBigEndian(length);
 
         QByteArray sps_data = m_fVideoReader.read(length);
-        qDebug() << "sps length" << length << " " << sps_data.size();
+        //qDebug() << "sps length" << length << " " << sps_data.size();
 
         PAV_PACKET packet = new AV_PACKET;
         packet->timestamp = m_currentTagHeaderForVideo.timestamp;
@@ -434,7 +438,6 @@ void FlvReader::ParseAVCVideoNALU(AVC_VIDEO_PACKET_HEADER header)
         packet->timestamp = m_currentTagHeaderForVideo.timestamp;
         packet->cts = header.composition_time;
 
-        qDebug() <<"timestamp:" <<packet->timestamp << header.composition_time;
         packet->data = nalu_data;
         packet->data.prepend((char)0x01);
         packet->data.prepend((char)0x00);
@@ -445,7 +448,6 @@ void FlvReader::ParseAVCVideoNALU(AVC_VIDEO_PACKET_HEADER header)
         m_listVideoPackets.push_back(packet);
         unit_readed_bytes += (4 + length);
 
-        qDebug() << "NALU:" << length;
     }
 }
 void FlvReader::ParseAVCVideoEOS()
@@ -456,7 +458,6 @@ void FlvReader::ParseAVCVideoEOS()
 
 bool FlvReader::SeekToNextAudioTag()
 {
-    qDebug()<<"FlvReader::SeekToNextAudioTag begin";
     do
     {
 
@@ -464,7 +465,7 @@ bool FlvReader::SeekToNextAudioTag()
         qint64 byteAvail = m_fAudioReader.bytesAvailable();
         if(byteAvail < minTagHeaderSize)
         {
-            qDebug()<<"m_fAudioReader.bytesAvailable() < minTagHeaderSize| bytesAvail:" << byteAvail  << "minTagHeaderSize:" << minTagHeaderSize ;
+            //qDebug()<<"m_fAudioReader.bytesAvailable() < minTagHeaderSize| bytesAvail:" << byteAvail  << "minTagHeaderSize:" << minTagHeaderSize ;
             if(!m_fAudioReader.atEnd())
             {
                 m_fAudioReader.seek(m_fAudioReader.size());
@@ -478,27 +479,24 @@ bool FlvReader::SeekToNextAudioTag()
         quint32 nPreviousTagSize;
         if(m_fAudioReader.read((char*)&nPreviousTagSize, 4) == -1)
         {
-            qDebug()<<"m_fAudioReader.read(4).isEmpty()";
+            //qDebug()<<"m_fAudioReader.read(4).isEmpty()";
 
             break;
         }
 
-        qDebug() << "previous tag size:%d" << qFromBigEndian(nPreviousTagSize);
-
         if(m_fAudioReader.read((char*)&m_currentTagHeaderForAudio, sizeof(FLV_TAG_HEADER)) == -1)
         {
-            qDebug()<<"m_fAudioReader.read((char*)&m_currentTagHeaderForAudio, sizeof(FLV_TAG_HEADER)) == -1)";
+            //qDebug()<<"m_fAudioReader.read((char*)&m_currentTagHeaderForAudio, sizeof(FLV_TAG_HEADER)) == -1)";
             break;
         }
 
         m_currentTagHeaderForAudio.timestamp = qFromBigEndian(m_currentTagHeaderForAudio.timestamp) >> 8;
         m_currentTagHeaderForAudio.timestamp |= m_currentTagHeaderForAudio.exstamp << 24;
         m_currentTagHeaderForAudio.size = qFromBigEndian(m_currentTagHeaderForAudio.size) >> 8;
-        qDebug() << sizeof(FLV_TAG_HEADER) << " " << m_currentTagHeaderForAudio.size;
+        //qDebug() << sizeof(FLV_TAG_HEADER) << " " << m_currentTagHeaderForAudio.size;
 
         if(m_currentTagHeaderForAudio.type == FLV_TAG_AUDIO && m_fAudioReader.bytesAvailable() >= m_currentTagHeaderForAudio.size)
         {
-            qDebug()<<"FlvReader::SeekToNextAudioTag success";
             return true;
         }
 
@@ -506,25 +504,24 @@ bool FlvReader::SeekToNextAudioTag()
                 (m_currentTagHeaderForAudio.type != FLV_TAG_AUDIO) &&
                 (m_currentTagHeaderForAudio.type != FLV_TAG_SCRIPT))
         {
-            qDebug()<<"m_currentTagHeaderForAudio.type : "<<m_currentTagHeaderForAudio.type;
+            //qDebug()<<"m_currentTagHeaderForAudio.type : "<<m_currentTagHeaderForAudio.type;
             break;
         }
 
 
         if(m_fAudioReader.bytesAvailable() < m_currentTagHeaderForAudio.size)
         {
-            qDebug()<<"m_fAudioReader.bytesAvailable() < m_currentTagHeaderForAudio.size "<<m_fAudioReader.bytesAvailable() <<":"<<m_currentTagHeaderForAudio.size;
+            //qDebug()<<"m_fAudioReader.bytesAvailable() < m_currentTagHeaderForAudio.size "<<m_fAudioReader.bytesAvailable() <<":"<<m_currentTagHeaderForAudio.size;
             m_fAudioReader.seek(m_fAudioReader.size());
             break;
         }
         if(m_fAudioReader.read(m_currentTagHeaderForAudio.size).isEmpty())
         {
-            qDebug() << "m_fAudioReader.read(m_currentTagHeaderForAudio.size).isEmpty()";
+            //qDebug() << "m_fAudioReader.read(m_currentTagHeaderForAudio.size).isEmpty()";
             break;
         }
     }while(true);
 
-    qDebug()<<"FlvReader::SeekToNextAudioTag failed";
     return false;
 
 }
@@ -534,7 +531,6 @@ void FlvReader::ParseAudioTag()
     AUDIO_TAG_PARAM param;
     m_fAudioReader.read((char*)&param, sizeof(param));
 
-    qDebug() << "ParseAudioTag" << param.soundformat;
     QByteArray data = m_fAudioReader.read(m_currentTagHeaderForAudio.size - sizeof(param));
     if(param.soundformat == 2)
     {
@@ -545,7 +541,6 @@ void FlvReader::ParseAudioTag()
         QMutexLocker locker(&m_mutexAudio);
         m_listAudioPackets.push_back(pPacket);
         emit new_audio_packet();
-        qDebug() << "emit audio packet signal time stamp" << pPacket->timestamp;
     }
 }
 

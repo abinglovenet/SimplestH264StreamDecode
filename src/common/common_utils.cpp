@@ -375,7 +375,7 @@ mfxStatus WriteRawFrame(mfxFrameSurface1* pSurface, FILE* fSink)
         h = pInfo->Height;
     }
 
-    qDebug() << "FourCC:" << pInfo->FourCC;
+    //qDebug() << "FourCC:" << pInfo->FourCC;
     if (pInfo->FourCC == MFX_FOURCC_RGB4 || pInfo->FourCC == MFX_FOURCC_A2RGB10)
     {
         pitch = pData->Pitch;
@@ -510,7 +510,7 @@ mfxStatus WriteRawFrame(mfxFrameSurface1* pSurface, QByteArray* pBuffer, mfxFram
     //return sts;
 
     sts = pAllocator->Lock(pAllocator->pthis, pSurface->Data.MemId, &pSurface->Data);
-    qDebug() << "Lock Frame:" << sts;
+    //qDebug() << "Lock Frame:" << sts;
     mfxFrameInfo* pInfo = &pSurface->Info;
     mfxFrameData* pData = &pSurface->Data;
 
@@ -532,7 +532,7 @@ mfxStatus WriteRawFrame(mfxFrameSurface1* pSurface, QByteArray* pBuffer, mfxFram
     /*
 w = pInfo->Width;
 h = pInfo->Height;
-    qDebug() << "FourCC:" << pInfo->FourCC;
+    //qDebug() << "FourCC:" << pInfo->FourCC;
     if (pInfo->FourCC == MFX_FOURCC_RGB4 || pInfo->FourCC == MFX_FOURCC_A2RGB10)
     {
         pitch = pData->Pitch;

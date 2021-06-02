@@ -62,7 +62,7 @@ mfxStatus Initialize(mfxIMPL impl, mfxVersion ver, MFXVideoSession* pSession, mf
 
         // Since we are using video memory we must provide Media SDK with an external allocator
         sts = pSession->SetFrameAllocator(pmfxAllocator);
-        qInfo() << "3444446";
+        //qInfo() << "3444446";
         MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
     }
 #else
