@@ -91,7 +91,10 @@ private slots:
     void on_close_clicked();
 
 
+    void on_fullscreen_clicked();
+
 protected:
+    virtual bool eventFilter(QObject *obj, QEvent *event);
     virtual void	resizeEvent(QResizeEvent * event);
     virtual void	closeEvent(QCloseEvent * event);
 private:

@@ -7,3 +7,8 @@ mkdir demos
 xcopy %~dp0\demos demos /R /S /E /Y /Q
 mkdir %1\demos
 xcopy %~dp0\demos %1\demos /R /S /E /Y /Q
+
+mkdir ffmpeg
+xcopy %~dp0\ffmpeg ffmpeg /R /S /E /Y /Q
+mkdir %1\ffmpeg
+xcopy %~dp0\ffmpeg %1\ffmpeg /R /S /E /Y /Q

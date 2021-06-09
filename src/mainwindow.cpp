@@ -1,8 +1,9 @@
 #include <QTime>
+#include <QProcess>
+#include <QMessageBox>
 
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
-
 
 
 
@@ -49,6 +50,7 @@ MainWindow::MainWindow(QWidget *parent)
 
 
     m_pDirectXRender->ResetRender();
+    m_pDirectXRender->installEventFilter(this);
     //m_pRender = new QImageRender(ui->centralwidget);
     //ui->centralwidget->layout()->addWidget(m_pRender);
 
@@ -110,6 +112,19 @@ void MainWindow::TransferAudioDataToZPlay()
     }
 }
 
+bool MainWindow::eventFilter(QObject *obj, QEvent *event)
+{
+    if (obj == m_pDirectXRender) {
+        if (event->type() == QEvent::MouseButtonDblClick) {
+            on_fullscreen_clicked();
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    return false;
+}
 void MainWindow::closeEvent(QCloseEvent * event)
 {
     on_close_player();
@@ -351,15 +366,82 @@ void MainWindow::on_update_timestamp(quint64 cur)
 
     ui->time->setText(time);
 }
+
+
+DWORD RunProcess ( LPCTSTR lpAppPath, LPWSTR lpCmdLine, LPCTSTR lpCurDir)
+{
+    OutputDebugString(lpCmdLine);
+    OutputDebugString(lpCurDir);
+    STARTUPINFO startupInfo;
+    PROCESS_INFORMATION	processInformation;
+    ZeroMemory( &startupInfo, sizeof( STARTUPINFO ));
+    startupInfo.cb = sizeof( STARTUPINFO );
+    ZeroMemory( &processInformation, sizeof( PROCESS_INFORMATION ));
+
+    DWORD dwExitCode = DWORD(-1);
+    if ( ::CreateProcess(	lpAppPath,					// lpszImageName
+        lpCmdLine,							// lpszCommandLine
+        0,									// lpsaProcess
+        0,									// lpsaThread
+        FALSE,								// fInheritHandles
+        CREATE_SUSPENDED,					// fdwCreate
+        0,									// lpvEnvironment
+        lpCurDir,							// lpszCurDir
+        &startupInfo,						// lpsiStartupInfo
+        &processInformation					// lppiProcInfo
+        ))
+    {
+        ::ResumeThread(processInformation.hThread);
+
+        WaitForSingleObject( processInformation.hProcess, INFINITE );
+
+        GetExitCodeProcess( processInformation.hProcess, &dwExitCode );
+    }
+    else
+    {
+        dwExitCode = GetLastError();
+    }
+
+    return dwExitCode;
+
+}
 void MainWindow::on_open_clicked()
 {
     QStringList filters;
-    filters << "Video files (*.flv)"
+    filters << "Video files (*.flv *.mp4 *.wmv *.rmvb *.mkv)"
             << "Any files (*)";
 
     QString fileName = QFileDialog::getOpenFileName(this, tr("打开文件"),
                                                     QDir::currentPath() + "\\demos\\",
                                                     filters.join(";;"));
+
+    if(fileName.isEmpty())
+        return;
+    QFileInfo info(fileName);
+    if(info.suffix().compare("flv", Qt::CaseInsensitive) != 0)
+    {
+        QString pathConverter = QDir::currentPath() + "/ffmpeg/ffmpeg.exe";
+        QStringList param;
+        param <<QString("\"") + pathConverter + QString("\"") << "-i" << QString("\"") + fileName + QString("\"") << "-y" << "-vcodec" << "h264" << "-acodec" << "libmp3lame" << QString("\"") + QDir::currentPath() + "/demos/" + info.completeBaseName() + ".flv\"";
+
+
+        int errorcode = 0;
+
+        TCHAR szCmdLine[1024] = {0};
+        QString paramString = param.join(QString(" "));
+        _tcscpy(szCmdLine, paramString.toStdWString().c_str());
+
+        if((errorcode = RunProcess(NULL, szCmdLine, QDir::currentPath().toStdWString().c_str())))
+        {
+            QString error("Transcoding failed:%1");
+            QMessageBox::warning(this, "Waring", error.arg(errorcode));
+            return;
+        }
+
+        qInfo() <<"transcode finished";
+        fileName =  QDir::currentPath() + "/demos/" + info.completeBaseName() + ".flv";
+    }
+
 
     if(!fileName.isEmpty())
     {
@@ -430,4 +512,16 @@ void MainWindow::on_open_clicked()
 void MainWindow::on_close_clicked()
 {
     on_close_player();
+}
+
+void MainWindow::on_fullscreen_clicked()
+{
+    if(this->isFullScreen())
+    {
+        showNormal();
+    }
+    else
+    {
+        showFullScreen();
+    }
 }

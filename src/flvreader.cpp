@@ -117,7 +117,7 @@ bool FlvReader::Open(QString path)
                 if(strcmp(prop_name.toStdString().c_str(), "framerate") == 0)
                 {
                     qint64 temp = qFromBigEndian<qint64>((const uchar*)prop_value.toStdString().c_str());
-                    m_context.framerate = *((double*)&temp);
+                    m_context.framerate = qRound64(*((double*)&temp));
 
                 }
 
