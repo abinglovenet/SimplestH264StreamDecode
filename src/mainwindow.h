@@ -64,6 +64,10 @@ protected:
     int m_nPlayerState;
 
     MEDIA_CONTEXT m_context;
+
+    DWORD m_nLastMouseEventTick;
+    QTimer m_clock;
+    QCursor m_InitCursor;
     //test
     //QFile file;
 signals:
@@ -83,6 +87,8 @@ public slots:
     void on_video_decode_finshed();
     void on_audio_decode_finished();
     void on_update_timestamp(quint64 cur);
+
+    void on_clock_notify();
 private slots:
     void on_open_clicked();
     void on_close_player();

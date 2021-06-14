@@ -92,7 +92,7 @@ void QRenderThread::run()
 while(m_bRun)
 {
     renderFrame();
-    msleep(10);
+    msleep(16);
     //OutputDebugStringA("i am rendering");
 }
 

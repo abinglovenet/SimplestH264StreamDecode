@@ -6,7 +6,7 @@
 #include "ui_mainwindow.h"
 
 
-
+#define HIDE_PLAYBAR_MOUSE_IDLE_DURATION 10000
 #define MAX_TIMESTAMP(x) (x + 900)
 #define MIN_TIMESTAMP(x) ((x > 360) ? (x - 360) : 0)
 
@@ -51,6 +51,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     m_pDirectXRender->ResetRender();
     m_pDirectXRender->installEventFilter(this);
+    ui->controlWidget->installEventFilter(this);
     //m_pRender = new QImageRender(ui->centralwidget);
     //ui->centralwidget->layout()->addWidget(m_pRender);
 
@@ -62,7 +63,7 @@ MainWindow::MainWindow(QWidget *parent)
     file.setFileName("C:\\Users\\Public\\test.mp3");
     file.open(QIODevice::ReadWrite);
 */
-
+    m_InitCursor = cursor();
     update_player_state(PLAYER_IDLE);
 }
 
@@ -117,11 +118,17 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event)
     if (obj == m_pDirectXRender) {
         if (event->type() == QEvent::MouseButtonDblClick) {
             on_fullscreen_clicked();
-            return true;
-        } else {
-            return false;
         }
     }
+
+    if((event->type() <= QEvent::MouseMove && event->type() >= QEvent::MouseButtonPress) ||
+            (event->type() == QEvent::Enter) ||
+            (event->type() == QEvent::Move))
+    {
+        m_nLastMouseEventTick = ::GetTickCount();
+    }
+
+    qInfo() <<"event Filter" << m_nLastMouseEventTick << event->type();
 
     return false;
 }
@@ -279,9 +286,38 @@ void MainWindow::on_close_player()
         delete m_audioFrames.at(i);
     m_audioFrames.clear();
 
+    m_pDirectXRender->setMouseTracking(false);
+    setMouseTracking(false);
+    m_clock.stop();
+    disconnect(&m_clock, SIGNAL(timeout()), this, SLOT(on_clock_notify()));
+    ui->controlWidget->show();
+    setCursor(m_InitCursor);
     update_player_state(PLAYER_IDLE);
 }
 
+void MainWindow::on_clock_notify()
+{
+
+    if(ui->controlWidget->isFloating())
+    {
+        //qInfo() << "Clock" << GetTickCount() << m_nLastMouseEventTick << (GetTickCount() - m_nLastMouseEventTick);
+        if((GetTickCount() - m_nLastMouseEventTick) >= HIDE_PLAYBAR_MOUSE_IDLE_DURATION)
+        {
+            ui->controlWidget->hide();
+            if(isFullScreen())
+            {
+                setCursor(QCursor(Qt::BlankCursor));
+            }
+        }
+        else
+        {
+            ui->controlWidget->show();
+            setCursor(m_InitCursor);
+
+        }
+
+    }
+}
 void MainWindow::on_update_timestamp(quint64 cur)
 {
     if(m_context.duration <= 0)
@@ -292,7 +328,6 @@ void MainWindow::on_update_timestamp(quint64 cur)
         return;
 
     PAV_PACKET pPacket = nullptr;
-    int nPushCount = 0;
 
     quint64 maxTimeStamp = 0;
     quint64 minTimeStamp = 0;
@@ -506,6 +541,11 @@ void MainWindow::on_open_clicked()
         m_bVideoDecoderFinished = false;
         m_bAudioDecodeFinished = false;
         update_player_state(PLAYER_PLAYING);
+
+        connect(&m_clock, SIGNAL(timeout()), this, SLOT(on_clock_notify()));
+        m_clock.start(1000);
+        setMouseTracking(true);
+        m_pDirectXRender->setMouseTracking(true);
     }
 }
 
